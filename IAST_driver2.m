@@ -30,7 +30,7 @@ binary_data = importdata('iast_binary.txt'); % 2*Zx11, first row is water
 % S: cell array, pressure+loading columns 1-2 for each component (j)
 % S{j}(i, 1:2): component j, i-th pressure & loading
 for i = 1:2
-    [fitted_p, fitted_loading, all_p, all_n] = getwateriso(uc(i), n_sat(i), mid_n(i), mid_mu(i), widom_mu(i));
+    [fitted_p, fitted_loading, all_p, all_n] = getwateriso(uc(i), n_sat(i), mid_n(i), mid_mu(i), widom_mu(i), 1e-6);
     S={[fitted_p', fitted_loading'], [etoh_fug, etoh_loading(:,i)/uc(i)]};
     % M: partial pressures in mixture where col = comp and row = pressure
     % partial pressure = fugacity
@@ -57,10 +57,10 @@ end
 % just graph water isotherm
 clc
 for i = 1:3
-    M = linspace(2, 10, 5);
-    K = logspace(-12, -8, 5);
-    kFixedM = zeros(1, length(M));
-    MFixedK = zeros(1, length(K));
+%   M = linspace(2, 10, 5);
+%   K = logspace(-12, -8, 5);
+%   kFixedM = zeros(1, length(M));
+%   MFixedK = zeros(1, length(K));
     [fitted_p, fitted_loading, all_p, all_n] = getwateriso(uc(i), n_sat(i), mid_n(i), mid_mu(i), widom_mu(i), 1e-6);
     figure
     semilogx(fitted_p, fitted_loading, '--', all_p, all_n, 'ko')
