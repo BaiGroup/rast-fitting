@@ -1,4 +1,4 @@
-function [Q_predicted, x, Q_IAST, x_IAST, F_IAST] = RAST_solve(M, S, EoS, options, mode, x0, N_EoS_param)
+function [Q_predicted, x, err, lnP0, psi, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = RAST_solve(M, S, EoS, options, mode, x0, N_EoS_param, EoS_deriv, batch, skip)
 % IAST solver for N-component systems
 % M{j}(i, 1:2): component j, i-th partial pressure & loading
 % S{j}(i, 1:2): component j, i-th pressure & loading
@@ -20,7 +20,7 @@ function [Q_predicted, x, Q_IAST, x_IAST, F_IAST] = RAST_solve(M, S, EoS, option
 % x0: initial guess for EoS parameters for mode > 1
 % N_EoS_param: number of parameters in the activity model
 
-options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 6000, 'MaxIter', 100, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'iter');
+options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 6000, 'MaxIter', 100, 'TolFun', 1e-4, 'TolX', 1e-4, 'Display', 'iter');
 if nargin < 4 || isempty(options)
     options = options_0;
 else
@@ -40,6 +40,10 @@ else
     noX0 = false;
 end
 
+if nargin < 8 || isempty(EoS_deriv)
+    EoS_deriv = [];
+end
+
 N = length(M);
 ndata = size(M{1}, 1);
 lnP = zeros(ndata, N);
@@ -49,18 +53,34 @@ for i = 1 : N  % components
     Q(:, i) = M{i}(:, 2);
 end
 
+if nargin < 9 || isempty(batch)
+    batch = 2*ndata;
+end
+
+if nargin < 10 || isempty(skip)
+    skip = ndata;
+end
+
 [isotherm, minlnP] = fit_isotherm(S);
 
 if noX0 && mode ~= 5
     % Initialize using IAST solutions and activity coefficients of one
     % (probably by setting EoS parameters to zero)
-    disp('Solve IAST for initial guess')
-    [Q_IAST, x_IAST, F_IAST] = IAST_solve(exp(lnP), [], isotherm, minlnP, [], options, 1);
+    if ~strcmp(optimget(options, 'Display'), 'off')
+        disp('Solve IAST for initial guess')
+        options_IAST = optimset('Display', 'iter');
+        [Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = IAST_solve(exp(lnP), [], isotherm, minlnP, [], options_IAST, 1);
+    end
 else
     Q_IAST = [];
     x_IAST = [];
-    F_IAST = [];
+    err_IAST = [];
+    lnP0_IAST = [];
+    psi_IAST = [];
 end
+
+lnP0 = zeros(ndata, N);
+psi = zeros(ndata, N);
 
 if mode == 3
     if noX0
@@ -74,27 +94,50 @@ if mode == 3
     [err, Q_predicted] = objFunc(x);
 elseif mode == 4
     if noX0
-        x0 = [reshape(x_IAST(:, 1:N)', 1, []), zeros(1, N_EoS_param)];
+        x0 = [reshape(x_IAST(:, N:2*N-1)', 1, []), ones(1, N_EoS_param)];
+    else
+        N_EoS_param = length(x0)-N*ndata;
     end
-    objFunc = @(x)RAST_func(x, isotherm, minlnP, M, EoS);
-    lb = [repmat(minlnP,1,ndata), -Inf*ones(1,length(x0)-N*ndata)];
-    [x,fval,exitflag,output,lambda,grad,hessian]=fmincon(objFunc,x0,[],[],[],[],lb,[],[],options);
-    [err, Q_predicted] = objFunc(x);
+    x = x0;
+    options_b = optimset(options, 'TolFun', 1e-4, 'TolX', 1e-3, 'MaxIter', 50);  %'OutputFcn', @outfun);
+    for i = 1:skip:ndata-batch+1
+        for j = 1:N
+            Mb{j}=M{j}(i:i+batch-1, :);
+        end
+        x0b = [x(N*(i-1)+1:N*(i-1+batch)), x(end-N_EoS_param+1:end)]
+        objFunc = @(y)RAST_func(y, isotherm, minlnP, Mb, EoS, EoS_deriv);
+        lb = [repmat(minlnP,1,batch), -Inf*ones(1,N_EoS_param-1), 0];
+        [xb,fval,exitflag,output,lambda,grad,hessian]=fmincon(objFunc,x0b,[],[],[],[],lb,[],[],options_b);
+        x(N*(i-1)+1:N*(i-1+batch)) = xb(1:end-N_EoS_param);
+        x(end-N_EoS_param+1:end) = (x(end-N_EoS_param+1:end)*(i-1) + xb(end-N_EoS_param+1:end))/i
+    end
+    objFunc = @(y)RAST_func(y, isotherm, minlnP, M, EoS, EoS_deriv);
+    lb = [repmat(minlnP,1,ndata), -Inf*ones(1,N_EoS_param-1), 0];
+    ub = [Inf*ones(1, ndata*N), Inf*ones(1,N_EoS_param-1), 1e-2];
+    [x,fval,exitflag,output,lambda,grad,hessian]=fmincon(objFunc,x,[],[],[],[],lb,ub,[],options);
+    [err, Q_predicted, lnP0, psi] = objFunc(x);
 elseif mode == 5
     if noX0
-        x0 = zeros(1, N_EoS_param);  % many EoS return 1 as activity coefficients when all parameters are zero
+        x0 = ones(1, N_EoS_param);  % many EoS return 1 as activity coefficients when all parameters are zero
     end
-    objFunc=@(x)RAST_func_IAST_solve(x, isotherm, minlnP, M, EoS);
-    [x,fval,exitflag,output]=fminsearch(objFunc,x0,options);
-    [err, Q_predicted] = objFunc(x);
-else
-    x = zeros(ndata, 3*N-1);
+    objFunc = @(x)RAST_func_IAST_solve(x, isotherm, minlnP, M, EoS, EoS_deriv);
+%     [x, fval, exitflag, output] = fminsearch(objFunc, x0, options);
+    lb = [-Inf*ones(1,N_EoS_param-1), 0];
+    ub = [Inf*ones(1,N_EoS_param-1), 1e-2];
+    [x,fval,exitflag,output,lambda,grad,hessian]=fmincon(objFunc,x0,[],[],[],[],lb,ub,[],options);
+    [err, Q_predicted, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = objFunc(x);
+    lnP0 = lnP0_IAST;
+    psi = psi_IAST;
+elseif mode == 1 || mode == 2 || mode == -2
+    x = zeros(ndata, 2*N);
     Q_predicted = zeros(ndata, N);
+    psi = zeros(ndata, N);
+    err = zeros(ndata, 3*N-1);
     if noX0
-        x0 = [x_IAST, ones(ndata, N)];
+        x0 = [x_IAST(:, N:2*N-1), ones(ndata, N)];
     end
     for i = 1 : ndata  % mixture partial pressures
-        i
+        fprintf('\n======Data point %d ======\n', i);
         func = @(x)RAST_func_per_point(x, isotherm, minlnP, lnP(i, :), Q(i, :), mode);
         if mode == 1
             [x(i,:),fval,exitflag,output,jacobian] = fsolve(func, x0(i, :), options);
@@ -103,8 +146,16 @@ else
             ub = [Inf*ones(1, N), ones(1, N-1), Inf*zeros(1, N)];
             [x(i,:),resnorm,residual,exitflag,output,lambda,jacobian] = lsqnonlin(func, x0(i, :), lb, ub, options);
         end
-        [err, Q_predicted(i, :)] = func(x(i,:));
+        [err(i, :), Q_predicted(i, :), lnP0(i, :), psi(i, :)] = func(x(i,:));
     end
+else
+    error('RAST_solve:UnknownMode','Mode parameter outside known choices.')
 end
+
+    function stop = outfun(x, optimValues, state)
+        stop = false;
+        disp(state);
+        disp(x);
+    end
 
 end

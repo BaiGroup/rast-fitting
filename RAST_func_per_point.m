@@ -1,8 +1,7 @@
-function [err, Q_predicted] = RAST_func_per_point(x, isotherm, minlnP, lnP, Q, mode)
+function [err, Q_predicted, lnP0, psi] = RAST_func_per_point(x, isotherm, minlnP, lnP, Q, mode)
 % Real Adsorbed Solution Theory constraint function
 % x(i), 1<=i<=N: ln p_i^0
-% x(N+i), 1<=i<=N-1: z_i for component i in the absorbed phase
-% x(2N-1+i), 1<=i<=N: i-th activitiy coefficient
+% x(N+i), 1<=i<=N: i-th activitiy coefficient
 % isotherm(i), 1<=i<=N: function handle for isotherm i, Q(lnP)
 % minlnP(i), 1<=i<=N: lnP at which Q is zero
 % lnP(i), 1<=i<=N: bulk phase pressure
@@ -13,17 +12,17 @@ function [err, Q_predicted] = RAST_func_per_point(x, isotherm, minlnP, lnP, Q, m
 
 N = length(minlnP);
 
-if nargin < 6
+if nargin < 6 || isempty(mode)
     mode = 1;
 end
 
-IAST_err = IAST_func(x(1:2*N-1), isotherm, minlnP, lnP, x(2*N:end), [], mode);
+z = Q ./ sum(Q, 2);
+EoS = @(y)x(N+1:end);
+[IAST_err, lnP0, psi] = IAST_func([z(1:end-1), x(1:N)], isotherm, minlnP, lnP, EoS, [], mode);
 
-z = x(N+1:2*N-1);
-z = [z, 1-sum(z)];
 Q_predicted = 0;
 for j=1:N
-    Q_predicted = Q_predicted + z(j) / isotherm{j}(x(j));
+    Q_predicted = Q_predicted + z(j) / isotherm{j}(lnP0(j));
 end
 Q_predicted = 1 / Q_predicted * z;
 

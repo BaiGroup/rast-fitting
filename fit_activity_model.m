@@ -14,7 +14,7 @@ else
     options = optimset(options_0, options);
 end
 
-x0 = zeros(1, N_EoS_param);
+x0 = ones(1, N_EoS_param);
 % func = @(x)(EoS(x, z)-gamma);
 func = @(x)((EoS(x, z)-gamma)./gamma);
 % func = @(x)(log(EoS(x, z)./gamma));

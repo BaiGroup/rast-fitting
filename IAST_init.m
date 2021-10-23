@@ -1,19 +1,25 @@
-function x0 = IAST_init(lnP, z, gamma)
+function x0 = IAST_init(lnP, z, gamma, mode)
 [ndata, N] = size(lnP);
 
 if nargin<3 || isempty(gamma)
     gamma=ones(ndata,N);
 end
 
-x0 = zeros(ndata, 2*N);
-
-if nargin < 2
-    x0(1:ndata, N+1:2*N) = 1/N;  % equimolar mixtures
-else
-    x0(1:ndata, N+1:2*N) = [z, 1-sum(z,2)];
+if nargin < 4 || isempty(mode)
+    mode = 1;
 end
 
-x0(1:ndata, 1:N) = lnP - log(x0(1:ndata, N+1:2*N)) - log(gamma);  % lnP_i^0 = lnP_i - lnz_i -ln(\gamma_i)
+if nargin < 2 || isempty(z)
+    x = 1/N*ones(ndata, N);  % equimolar mixtures
+else
+    x = [z, 1-sum(z,2)];
+end
 
-x0 = x0(1:ndata, 1:end-1);
+if mode == 3 || mode == 4
+    x0 = [x(1:ndata,1:end-1), 50*ones(ndata,1)];  % Omega = 50
+elseif mode == 1 || mode == 2 || mode == -2
+    x0 = [x(1:ndata,1:end-1), lnP - log(x) - log(gamma)];  % lnP_i^0 = lnP_i - lnz_i -ln(\gamma_i)
+else
+    error('IAST_init:UnknownMode','Mode parameter outside known choices.')
+end
 end
