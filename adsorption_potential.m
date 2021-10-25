@@ -1,7 +1,7 @@
-function y = adsorption_potential(isotherm, minlnP, maxlnP, tol)
+function y = adsorption_potential(maxlnP, isotherm, minlnP, tol)
 
 if nargin < 4 || isempty(tol)
-    tol = 1e-5;
+    tol = 1e-4;
 end
 
 if maxlnP < minlnP + tol

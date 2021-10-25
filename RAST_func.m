@@ -1,4 +1,4 @@
-function [err, Q_predicted, lnP0, psi] = RAST_func(x, isotherm, minlnP, M, EoS, EoS_deriv, tol)
+function [err, Q_predicted, lnP0, psi] = RAST_func(x, isotherm, M, EoS, varargin)
 % Real Adsorbed Solution Theory objective function
 % x((i-1)*N+j), 1<=j<=N: ln p_j^0 for i-th data point
 % x(ndata*N+j): j-th coefficient for EoS
@@ -7,6 +7,19 @@ function [err, Q_predicted, lnP0, psi] = RAST_func(x, isotherm, minlnP, M, EoS, 
 % M{j}(i, 1:2): component j, i-th partial pressure & loading
 % EoS: function handle that computes the activity coefficients
 %      [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N])
+
+if nargin < 4 || rem(nargin,2) ~= 0
+    error('RAST_func:Number of arguments incorrect');
+end
+
+names          = {'minlnP'; 'ads_pot'; 'inv_ads_pot'; 'EoS_deriv'; 'tol'};
+default_values = {      [];        [];            [];          []; 1e-5};
+opt_args = process_variable_arguments(names, default_values, varargin);
+minlnP = opt_args.('minlnP');
+ads_pot = opt_args.('ads_pot');
+inv_ads_pot = opt_args.('inv_ads_pot');
+EoS_deriv = opt_args.('EoS_deriv');
+tol = opt_args.('tol');
 
 N = length(M);
 ndata = size(M{1}, 1);
@@ -17,11 +30,7 @@ for i = 1 : N  % components
     Q(:, i) = M{i}(:, 2);
 end
 
-if nargin < 7 || isempty(tol)
-    tol = 1e-5;
-end
-
-if nargin < 6 || isempty(EoS_deriv)
+if isempty(EoS_deriv)
     % central difference to calculate numerical derivative
     EoS_deriv = @(y)(sum((log(EoS([y(1:end-1), y(end)+tol]))-log(EoS([y(1:end-1), y(end)-tol])))/2/tol.*y(1:end-1)));
 end
@@ -34,14 +43,13 @@ Q_predicted = zeros(ndata, N);
 psi = zeros(ndata, N);
 err = 0;
 for i = 1 : ndata
-    [IAST_err, ~, psi(i, :)] = IAST_func([z(i, 1:end-1), lnP0(i, :)], isotherm, minlnP, lnP(i, :), EoS_with_coeff, [], 2);
+    [IAST_err, ~, psi(i, :)] = IAST_func([z(i, 1:end-1), lnP0(i, :)], lnP(i, :), 'mode', 2, 'isotherm', isotherm, 'minlnP', minlnP, 'EoS', EoS_with_coeff, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot);
 
-    tN = adsorption_potential(isotherm{N}, minlnP(N), lnP0(i, N));
     Q_t = 0;
     for j=1:N
         Q_t = Q_t + z(i, j) / isotherm{j}(lnP0(i, j));
     end
-    Q_t = 1 / (Q_t + EoS_deriv(coeff, [z(i, 1:N-1), tN]));
+    Q_t = 1 / (Q_t + EoS_deriv(coeff, [z(i, 1:N-1), psi(i, N)]));
     Q_predicted(i, :) = Q_t * z(i, :);
     
     err = err + sum(IAST_err.^2);

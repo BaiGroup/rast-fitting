@@ -1,4 +1,4 @@
-function [isotherm, minlnP, maxlnP] = fit_isotherm(S, method, options)
+function [isotherm, ads_pot, inv_ads_pot] = fit_Langmuir_Sips(S, options)
 % Fit numerical interpolants for N single-component isotherms
 %   S{j}(i, 1:2): component j, i-th pressure (P) & loading (Q)
 %   method is passed to interp1 and defaults to 'linear'. It is used in
@@ -9,24 +9,21 @@ function [isotherm, minlnP, maxlnP] = fit_isotherm(S, method, options)
 %   isotherm(i), 1<=i<=N: function handle for isotherm i, Q(lnP)
 %     minlnP(i), 1<=i<=N: lnP at which Q is zero
 
-if nargin < 2 || isempty(method)
-    method = 'linear';
-end
-
-if nargin < 3
+if nargin < 2
     options = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 600, 'MaxIter', 100, 'Display', 'off');
 end
 
 N = length(S);
-minlnP = zeros(1, N);
-maxlnP = zeros(1, N);
+isotherm = cell(1, N);
+ads_pot = cell(1, N);
+inv_ads_pot = cell(1, N);
 for i = 1 : N  % components
-    lnP = log(S{i}(:, 1));
-    maxlnP(i) = max(lnP);
-    Q = S{i}(:, 2);
-    isotherm_pp = interp1(lnP, Q, method, 'pp');
-    isotherm{i} = @(x)ppval(isotherm_pp, x);
-    [minlnP(i), fval, exitflag, output, jacobian] = fsolve(isotherm{i}, min(lnP), options);
+    x0 = ones(1, 3);
+    func = @(x)(Langmuir_Sips(log(S{i}(:,1)), x(:, 1), x(:, 2), x(:, 3)) - S{i}(:,2));
+    [param,fval,exitflag,output,jacobian] = fsolve(func, x0, options);
+    isotherm{i} = @(x)Langmuir_Sips(x, param(1), param(2), param(3));
+    ads_pot{i} = @(x)Langmuir_Sips_ads_pot(x, param(1), param(2), param(3));
+    inv_ads_pot{i} = @(x)Langmuir_Sips_inv_ads_pot(x, param(1), param(2), param(3));
 end
 
 end

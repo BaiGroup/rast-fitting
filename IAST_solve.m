@@ -1,52 +1,81 @@
-function [Q_predicted, x, err, lnP0, psi, exitflags] = IAST_solve(M, S, isotherm, minlnP, EoS, options, mode, x0, tol, EoS_deriv)
-% IAST solver for N-component systems
-% M(i, j): i-th partial pressure for component j
-% S{j}(i, 1:2): component j, i-th pressure & loading
-% isotherm(i), 1<=i<=N: function handle for isotherm i, Q(lnP)
-% minlnP(i), 1<=i<=N: lnP at which Q is zero
-% EoS: function handle that computes the activity coefficients
-%      [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N-1, Omega])
-% options: argument for fsolve() or lsqnonlin()
-% mode: 1 or 3 uses fsolve() and P*y1/P_i^0 - x_i*gamma_i = 0
-%       2 or 4 uses lsqnonlin() and ln(P*y1) = ln(P_i^0) + ln(x_i*gamma_i),
-%       gamma_i cannot be negative during optimizations
-%       -2 uses MultiStart() for mode 2
-% x0: initial guess for z_i, lnP_i
+% IAST_solve Ideal Adsorbed Solution Theory (IAST) modelling
+%
+% Syntax
+%   Q = IAST_solve(M, S)
+%   Q = IAST_solve(M, S, 'tol', 1e-5, 'options', options)
+%
+% Description
+%   For a R-component system (R>1),
+%   M is a P x R matrix and M(i,:) is a mixture state point, characterized
+%     by R values of partial pressures of the corresponding component.
+%   S is a cell array of length R, and S{i} stores the single-component
+%     isotherm data for the i-th component. S{i} is a T x 2 matrix, where
+%     the first column contains pressures and the second column loadings.
+%     T can be different for different components.
+%   tol is passed to IAST_func and defaults to 1e-5. It controls the
+%     precision of integrals via the trapezoidal method.
+%   options are passed to fsolve or lsqnonlin and can be contructed using
+%     optimset.
+%   isotherm(i), 1<=i<=N: function handle for isotherm i, Q(lnP)
+%   minlnP(i), 1<=i<=N: lnP at which Q is zero
+%   EoS: function handle that computes the activity coefficients
+%     [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N-1, Psi])
+%   mode: 1 or -1 uses fsolve() and P*y1/P_i^0 - x_i*gamma_i = 0
+%     2 or -2 uses lsqnonlin() and ln(P*y1) = ln(P_i^0) + ln(x_i*gamma_i),
+%     gamma_i cannot be negative during optimizations
+%     102 uses MultiStart() for mode 2
+%   x0: initial guess for z_i, lnP_i
+%   Q is a P x R matrix and contains loadings predicted by the IAST theory.
+%
+%   See Bai et al., Langmuir 28 (2012) 15566 for reference to equations
+%   and symbols.
+%
+% See also IAST_func, fsolve, optimset, interp1, ppval
+
+function [Q_predicted, x, err, lnP0, psi, exitflags] = IAST_solve(M, S, varargin)
+if nargin < 2 || rem(nargin,2) ~= 0
+    error('IAST_solve:Number of arguments incorrect');
+end
 
 [ndata, N] = size(M);
-
-if nargin < 4 || isempty(isotherm) || isempty(minlnP)
-    [isotherm, minlnP, maxlnP] = fit_isotherm(S);
+if N < 2
+    error('IAST_solve:System must have at least two components');
 end
 
 options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 800, 'MaxIter', 100, 'TolFun', 1e-3, 'TolX', 1e-4, 'Display', 'off');
 
-if nargin < 5 || isempty(EoS)
+names          = {'isotherm'; 'minlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'tol'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'};
+default_values = {        [];       [];    []; options_0;      1;   [];  1e-5;          [];        []; []};
+opt_args = process_variable_arguments(names, default_values, varargin);
+isotherm = opt_args.('isotherm');
+minlnP = opt_args.('minlnP');
+EoS = opt_args.('EoS');
+options = opt_args.('options');
+mode = opt_args.('mode');
+x0 = opt_args.('x0');
+tol = opt_args.('tol');
+EoS_deriv =opt_args.('EoS_deriv');
+ads_pot = opt_args.('ads_pot');
+inv_ads_pot = opt_args.('inv_ads_pot');
+
+if isempty(isotherm) || isempty(minlnP)
+    [isotherm, minlnP, maxlnP] = fit_isotherm(S);
+end
+
+if isempty(EoS)
     EoS = @(x)ones(1, N);
 end
 
-if nargin < 5 || isempty(options)
-    options = options_0;
-else
-    options = optimset(options_0, options);
-end
-
-if nargin < 7 || isempty(mode)
-    mode = 1;
-end
+options = optimset(options_0, options);
 
 lnP_mixture = log(M);
 
-if nargin < 8 || isempty(x0)
+if isempty(x0)
     z = ones(ndata, N-1) * 1/N;
     x0 = IAST_init(lnP_mixture, z, EoS([z,1e3*ones(ndata,1)]), mode);
 end
 
-if nargin < 9 || isempty(tol)
-    tol = 1e-5;
-end
-
-if nargin < 10 || isempty(EoS_deriv)
+if isempty(EoS_deriv)
     % central difference to calculate numerical derivative
     EoS_deriv = @(x)(sum((log(EoS([x(1:end-1), x(end)+tol]))-log(EoS([x(1:end-1), x(end)-tol])))/2/tol.*x(1:end-1)));
 end
@@ -56,10 +85,10 @@ Z = zeros(ndata, N);
 lnP0 = zeros(ndata, N);
 psi = zeros(ndata, N);
 exitflags = zeros(ndata, 1);
-if mode == 1 || mode == 2 || mode == -2
+if mode == 1 || mode == 2 || mode == 102
     err = zeros(ndata, 2*N-1);
     x = zeros(ndata, 2*N-1);
-elseif mode == 3 || mode == 4
+elseif mode == -1 || mode == -2
     err = zeros(ndata, N);
     x = zeros(ndata, N);
 else
@@ -70,24 +99,24 @@ for i = 1 : ndata  % mixture partial pressures
     if ~strcmp(optimget(options, 'Display'), 'off')
         fprintf('\n======Data point %d ======\n', i);
     end
-    func = @(x)IAST_func(x, isotherm, minlnP, lnP_mixture(i, :), EoS, [], mode);
-    if mode == 1 || mode == 3
+    func = @(x)IAST_func(x, lnP_mixture(i, :), 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', EoS, 'mode', mode);
+    if mode == 1 || mode == -1
         [x1,fval,exitflags(i),output,jacobian] = fsolve(func, x0(i, :), options);
-    elseif mode == 2 || mode == 4 || mode == -2
-        if mode == 4
+    elseif mode == 2 || mode == -2 || mode == 102
+        if mode == -2
             lb = [zeros(1, N-1), 0];
             ub = [ones(1, N-1), Inf];
-        else
+        elseif mode == 2 || mode == 102
             lb = [zeros(1, N-1), minlnP];
-            if nargin < 4 || isempty(isotherm) || isempty(minlnP)
+            if isempty(isotherm) || isempty(minlnP)
                 ub = [ones(1, N-1), maxlnP];
             else
                 ub = [ones(1, N-1), Inf*ones(1, N)];
             end
         end
-        if mode == 2 || mode == 4
+        if mode == 2 || mode == -2
             [x1,resnorm,residual,exitflags(i),output,lambda,jacobian] = lsqnonlin(func, x0(i, :), lb, ub, options);
-        elseif mode == -2
+        elseif mode == 102
             prob = createOptimProblem('lsqnonlin', 'objective', func, 'x0', x0(i, :), ...
                 'lb', lb, 'ub', ub, 'options', options);
             ms = MultiStart('Display', 'iter', 'TolFun', 1e-3, 'TolX', 1e-4, 'UseParallel', 'always');

@@ -22,7 +22,7 @@ z = reshape(x(ndata*N+1:ndata*(2*N-1)), N-1, ndata)';
 err = zeros(ndata, 2*N-1);
 for i = 1 : ndata
     gamma = EoS(coeff, z(i, :));
-    err(i, :) = IAST_func([lnP0(i, :), z(i, :)], isotherm, minlnP, lnP(i, :), gamma, [], 2);
+    err(i, :) = IAST_func([lnP0(i, :), z(i, :)], lnP(i, :), 'isotherm', isotherm, 'minlnP', minlnP, 'EoS', gamma, 'mode', 2);
 end
 
 c = [];
