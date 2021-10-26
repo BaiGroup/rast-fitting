@@ -7,7 +7,7 @@ function coeff = fit_activity_model(EoS, N_EoS_param, z, gamma, options)
 % gamma(i): activity coefficient for component i; default is 1
 % options: argument for fminsearch()
 
-options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 600, 'MaxIter', 100, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'iter');
+options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 600, 'MaxIter', 100, 'Display', 'iter');
 if nargin < 5 || isempty(options)
     options = options_0;
 else

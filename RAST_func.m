@@ -43,7 +43,7 @@ Q_predicted = zeros(ndata, N);
 psi = zeros(ndata, N);
 err = 0;
 for i = 1 : ndata
-    [IAST_err, ~, psi(i, :)] = IAST_func([z(i, 1:end-1), lnP0(i, :)], lnP(i, :), 'mode', 2, 'isotherm', isotherm, 'minlnP', minlnP, 'EoS', EoS_with_coeff, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot);
+    [IAST_err, ~, psi(i, :)] = IAST_func([z(i, 1:end-1), lnP0(i, :)], lnP(i, :), 'mode', 2, 'isotherm', isotherm, 'minlnP', minlnP, 'tol', tol, 'EoS', EoS_with_coeff, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot);
 
     Q_t = 0;
     for j=1:N

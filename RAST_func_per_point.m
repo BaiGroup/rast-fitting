@@ -14,18 +14,19 @@ if nargin < 4 || rem(nargin,2) ~= 0
     error('RAST_func_per_point:Number of arguments incorrect');
 end
 
-names          = {'minlnP'; 'ads_pot'; 'inv_ads_pot'; 'mode'};
-default_values = {      [];        [];            []; 1};
+names          = {'minlnP'; 'ads_pot'; 'inv_ads_pot'; 'tol'; 'mode'};
+default_values = {      [];        [];            [];  1e-5; 1};
 opt_args = process_variable_arguments(names, default_values, varargin);
 minlnP = opt_args.('minlnP');
 ads_pot = opt_args.('ads_pot');
 inv_ads_pot = opt_args.('inv_ads_pot');
+tol = opt_args.('tol');
 mode = opt_args.('mode');
 
 N = length(minlnP);
 z = Q ./ sum(Q, 2);
 EoS = @(y)x(N+1:end);
-[IAST_err, lnP0, psi] = IAST_func([z(1:end-1), x(1:N)], lnP, 'isotherm', isotherm, 'minlnP', minlnP, 'EoS', EoS, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'mode', mode);
+[IAST_err, lnP0, psi] = IAST_func([z(1:end-1), x(1:N)], lnP, 'isotherm', isotherm, 'minlnP', minlnP, 'EoS', EoS, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'tol', tol, 'mode', mode);
 
 Q_predicted = 0;
 for j=1:N

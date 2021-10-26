@@ -7,7 +7,7 @@ function q = Langmuir_Sips(lnP, lnK, q_sat, v)
 
 M = length(lnK);
 
-if nargin < 4
+if nargin < 4 || isempty(v)
     v = ones(M, 1);
 elseif M ~= length(v)
     error('Langmuir_Sips:NonEqualParameters', 'K and v must have same number of parameters');

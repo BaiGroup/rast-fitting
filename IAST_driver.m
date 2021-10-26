@@ -40,13 +40,13 @@ legend('sim\_MeOH','sim\_H2O','IAST\_MeOH','IAST\_H2O','Location','NorthEastOuts
 %% water/ethanol
 S={[water(:,1),water(:,2)],[ethanol(:,1),ethanol(:,2)]};
 M=[ethanol_water(:,6)*1000,ethanol_water(:,3)*1000];
-[isotherm, ads_pot, inv_ads_pot] = fit_Langmuir_Sips(S(1));  % fit water to Langmuir-Sips isotherms
-[isotherm2, minlnP2] = fit_isotherm(S(2));
-isotherm{2} = isotherm2{1};
+[isotherm, ads_pot, inv_ads_pot] = fit_Langmuir_Sips(S(1));  % fit Langmuir-Sips isotherms
+[isotherm(2), minlnP2, isotherm_pp2] = fit_piecewise_polynomial(S(2));
 minlnP = [-Inf, minlnP2];
-ads_pot{2} = [];
+ads_pot{2} = @(y)piecewise_polynomial_ads_pot(y, isotherm_pp2{1}, minlnP2);
 inv_ads_pot{2} = [];
-[Q, x, err, lnP0, psi] = IAST_solve(M, S, 'mode', 2, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'options', options);
+[Q, x, err, lnP0, psi] = IAST_solve(M, S, 'mode', 2, 'tol', 1e-6, 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'options', options);
+% [Q, x, err, lnP0, psi] = IAST_solve(M, S, 'mode', 1, 'options', options);
 
 %% Plotting
 semilogx(M(:,2),ethanol_water(:,2),'rs',M(:,2),ethanol_water(:,5),'bo',M(:,2),Q(:,2),'md',M(:,2),Q(:,1),'c^');

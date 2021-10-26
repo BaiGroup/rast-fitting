@@ -7,7 +7,7 @@ function y = Langmuir_Sips_ads_pot(maxlnP, lnK, q_sat, v)
 
 M = length(lnK);
 
-if nargin < 4
+if nargin < 4 || isempty(v)
     v = ones(M, 1);
 elseif M ~= length(v)
     error('Langmuir_Sips_ads_pot:NonEqualParameters', 'K and v must have same number of parameters');

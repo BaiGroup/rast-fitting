@@ -34,21 +34,22 @@
 
 function [Q_predicted, x, err, lnP0, psi, exitflags] = IAST_solve(M, S, varargin)
 if nargin < 2 || rem(nargin,2) ~= 0
-    error('IAST_solve:Number of arguments incorrect');
+    error('IAST_solve:IncorrectNumberArguments', 'Number of arguments incorrect');
 end
 
 [ndata, N] = size(M);
 if N < 2
-    error('IAST_solve:System must have at least two components');
+    error('IAST_solve:TooFewComponents', 'System must have at least two components');
 end
 
-options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 800, 'MaxIter', 100, 'TolFun', 1e-3, 'TolX', 1e-4, 'Display', 'off');
+options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 800, 'MaxIter', 100, 'TolFun', 1e-4, 'TolX', 1e-5, 'Display', 'off');
 
-names          = {'isotherm'; 'minlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'tol'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'};
-default_values = {        [];       [];    []; options_0;      1;   [];  1e-5;          [];        []; []};
+names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'tol'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'};
+default_values = {        [];       [];       [];    []; options_0;      1;   [];  1e-5;          [];        []; []};
 opt_args = process_variable_arguments(names, default_values, varargin);
 isotherm = opt_args.('isotherm');
 minlnP = opt_args.('minlnP');
+maxlnP = opt_args.('maxlnP');
 EoS = opt_args.('EoS');
 options = opt_args.('options');
 mode = opt_args.('mode');
@@ -58,8 +59,18 @@ EoS_deriv =opt_args.('EoS_deriv');
 ads_pot = opt_args.('ads_pot');
 inv_ads_pot = opt_args.('inv_ads_pot');
 
-if isempty(isotherm) || isempty(minlnP)
-    [isotherm, minlnP, maxlnP] = fit_isotherm(S);
+if isempty(isotherm)
+    [isotherm, minlnP] = fit_piecewise_polynomial(S);
+end
+
+if isempty(maxlnP)
+    if isempty(S)
+        error('IAST_solve:InsufficientParameters', 'Either S or maxlnP needs to be provided');
+    end
+    maxlnP = zeros(1, N);
+    for i = 1:N
+        maxlnP(i) = max(log(S{i}(:, 1)));
+    end
 end
 
 if isempty(EoS)
@@ -99,7 +110,7 @@ for i = 1 : ndata  % mixture partial pressures
     if ~strcmp(optimget(options, 'Display'), 'off')
         fprintf('\n======Data point %d ======\n', i);
     end
-    func = @(x)IAST_func(x, lnP_mixture(i, :), 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', EoS, 'mode', mode);
+    func = @(x)IAST_func(x, lnP_mixture(i, :), 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', EoS, 'mode', mode, 'tol', tol);
     if mode == 1 || mode == -1
         [x1,fval,exitflags(i),output,jacobian] = fsolve(func, x0(i, :), options);
     elseif mode == 2 || mode == -2 || mode == 102
@@ -108,11 +119,7 @@ for i = 1 : ndata  % mixture partial pressures
             ub = [ones(1, N-1), Inf];
         elseif mode == 2 || mode == 102
             lb = [zeros(1, N-1), minlnP];
-            if isempty(isotherm) || isempty(minlnP)
-                ub = [ones(1, N-1), maxlnP];
-            else
-                ub = [ones(1, N-1), Inf*ones(1, N)];
-            end
+            ub = [ones(1, N-1), 2*maxlnP];
         end
         if mode == 2 || mode == -2
             [x1,resnorm,residual,exitflags(i),output,lambda,jacobian] = lsqnonlin(func, x0(i, :), lb, ub, options);

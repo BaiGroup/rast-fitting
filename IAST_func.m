@@ -40,7 +40,7 @@ end
 N = numel(lnP);
 
 names          = {'isotherm'; 'minlnP'; 'EoS'; 'mode'; 'tol'; 'ads_pot'; 'inv_ads_pot'};
-default_values = {        [];       [];    [];      1;  1e-4;        []; []};
+default_values = {        [];       [];    [];      1;  1e-5;        []; []};
 opt_args = process_variable_arguments(names, default_values, varargin);
 isotherm = opt_args.('isotherm');
 minlnP = opt_args.('minlnP');
@@ -51,13 +51,13 @@ ads_pot = opt_args.('ads_pot');
 inv_ads_pot = opt_args.('inv_ads_pot');
 
 if isempty(isotherm)
-    isotherm = cell(N, 1);
+    isotherm = cell(1, N);
 end
 if isempty(ads_pot)
-    ads_pot = cell(N, 1);
+    ads_pot = cell(1, N);
 end
 if isempty(inv_ads_pot)
-    inv_ads_pot = cell(N, 1);
+    inv_ads_pot = cell(1, N);
 end
 
 z = [x(1:N-1), 1-sum(x(1:N-1))];
@@ -72,10 +72,13 @@ if mode == -1 || mode == -2
     psi = ones(1, N) * x(N);
     for i = 1:N
         if isempty(inv_ads_pot{i})
-            if isempty(isotherm{i}) || isempty(minlnP)
-                error('IAST_func:isotherm and minlnP must be provided without inv_ads_pot');
+            if isempty(ads_pot{i})
+                if isempty(isotherm{i}) || isempty(minlnP)
+                    error('IAST_func:isotherm and minlnP must be provided without inv_ads_pot');
+                end
+                ads_pot{i} = @(y)adsorption_potential(y, isotherm{i}, minlnP(i), tol);
             end
-            inv_ads_pot{i} = @(y)inv_adsorption_potential(y, isotherm{i}, minlnP(i), tol);
+            inv_ads_pot{i} = @(y)inv_adsorption_potential(y, ads_pot{i});
         end
         lnP0(i) = inv_ads_pot{i}(psi(i));
     end
@@ -85,7 +88,7 @@ elseif mode == 1 || mode == 2 || mode == 102
             if isempty(isotherm{i}) || isempty(minlnP)
                 error('IAST_func:isotherm and minlnP must be provided without ads_pot');
             end
-            ads_pot{i} = @(y) adsorption_potential(y, isotherm{i}, minlnP(i), tol);
+            ads_pot{i} = @(y)adsorption_potential(y, isotherm{i}, minlnP(i), tol);
         end
     end
     
@@ -103,8 +106,9 @@ end
 
 gamma = EoS([x(1:N-1), psi(N)]);
 if mode == 1 || mode == -1
-    err(1:N)=exp(lnP-lnP0)-z.*gamma;
+    err(1:N) = exp(lnP-lnP0) - z.*gamma;
 elseif mode == 2 || mode == -2 || mode == 102
-    err(1:N)=lnP-lnP0-log(z.*gamma);
+    err(1:N) = lnP - lnP0 - log(z.*gamma);
+    err(isinf(err)) = 1e6;  % protect z.*gamma being too small
 end
 end

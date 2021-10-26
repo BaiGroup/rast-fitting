@@ -12,10 +12,11 @@ if nargin < 4 || rem(nargin,2) ~= 0
 end
 
 options_0 = optimset('Display', 'off');
-names          = {'minlnP'; 'ads_pot'; 'inv_ads_pot'; 'EoS_deriv'; 'mode'; 'x0'; 'tol'; 'options'};
-default_values = {      [];        [];            [];          [];      2;   [];  1e-5; options_0};
+names          = {'minlnP'; 'maxlnP'; 'ads_pot'; 'inv_ads_pot'; 'EoS_deriv'; 'mode'; 'x0'; 'tol'; 'options'};
+default_values = {      [];       [];        [];            [];          [];      2;   [];  1e-5; options_0};
 opt_args = process_variable_arguments(names, default_values, varargin);
 minlnP = opt_args.('minlnP');
+maxlnP = opt_args.('maxlnP');
 ads_pot = opt_args.('ads_pot');
 inv_ads_pot = opt_args.('inv_ads_pot');
 EoS_deriv = opt_args.('EoS_deriv');
@@ -52,8 +53,11 @@ if isempty(x0)
     x0 = IAST_init(log(P), z, EoS_with_coeff([z,1e3*ones(ndata,1)]), mode);
 end
 
-[Q_predicted, x_IAST, err_IAST, lnP0_IAST, psi_IAST, exitflags_IAST] = IAST_solve(P, [], 'isotherm', isotherm, 'minlnP', minlnP, 'EoS', EoS_with_coeff, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'options', options, 'mode', mode, 'x0', x0, 'EoS_deriv', EoS_deriv_with_coeff);
-exitflags_IAST
+[Q_predicted, x_IAST, err_IAST, lnP0_IAST, psi_IAST, exitflags_IAST] = IAST_solve(P, [], 'isotherm', isotherm, 'minlnP', minlnP, 'maxlnP', maxlnP, 'EoS', EoS_with_coeff, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'options', options, 'tol', tol, 'mode', mode, 'x0', x0, 'EoS_deriv', EoS_deriv_with_coeff);
+if ~strcmp(optimget(options, 'Display'), 'off')
+    disp('exitflags_IAST: ')
+    disp(exitflags_IAST)
+end
 err = sum(((Q_predicted - Q)./Q).^2, 'all');
 
 end

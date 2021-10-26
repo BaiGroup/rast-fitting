@@ -5,8 +5,12 @@ function lnP = Langmuir_Sips_inv_ads_pot(Psi, lnK, q_sat, v)
 % q_sat: saturation loadings
 % v: Sip exponents
 
-if nargin < 4
+if nargin < 4 || isempty(v)
     v = 1;
+end
+
+if length(lnK) ~= 1 || length(q_sat) ~= 1 || length(v) ~= 1
+    error('Langmuir_Sips_inv_ads_pot:TooManyParameters', 'Langmuir_Sips_inv_ads_pot currently supports only 1-site Langmuir-Sips model');
 end
 
 lnP = (log(exp(Psi.*v./q_sat) - 1) - lnK) ./ v;

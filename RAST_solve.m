@@ -27,20 +27,23 @@ end
 N = length(M);
 ndata = size(M{1}, 1);
 
-options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 6000, 'MaxIter', 100, 'TolFun', 1e-4, 'TolX', 1e-4, 'Display', 'iter');
-names          = {'isotherm'; 'minlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'N_EoS_param'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'; 'batch'; 'skip'};
-default_values = {        [];       [];    []; options_0;      1;   [];            [];          [];        [];            []; 2*ndata; ndata};
+options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 6000, 'MaxIter', 100, 'TolFun', 1e-4, 'TolX', 1e-6, 'Display', 'iter');
+names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'tol'; 'N_EoS_param'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'; 'C_ub'; 'batch'; 'skip'};
+default_values = {        [];       [];       [];    []; options_0;      1;   [];  1e-5;            [];          [];        [];            [];    Inf; 2*ndata; ndata};
 opt_args = process_variable_arguments(names, default_values, varargin);
 isotherm = opt_args.('isotherm');
 minlnP = opt_args.('minlnP');
+maxlnP = opt_args.('maxlnP');
 EoS = opt_args.('EoS');
 options = opt_args.('options');
 mode = opt_args.('mode');
 x0 = opt_args.('x0');
+tol = opt_args.('tol');
 N_EoS_param = opt_args.('N_EoS_param');
 EoS_deriv = opt_args.('EoS_deriv');
 ads_pot = opt_args.('ads_pot');
 inv_ads_pot = opt_args.('inv_ads_pot');
+C_ub = opt_args.('C_ub');
 batch = opt_args.('batch');
 skip = opt_args.('skip');
 
@@ -62,8 +65,18 @@ for i = 1 : N  % components
     Q(:, i) = M{i}(:, 2);
 end
 
-if isempty(isotherm) || isempty(minlnP)
-    [isotherm, minlnP, maxlnP] = fit_isotherm(S);
+if isempty(isotherm)
+    [isotherm, minlnP] = fit_piecewise_polynomial(S);
+end
+
+if isempty(maxlnP)
+    if isempty(S)
+        error('RAST_solve:InsufficientParameters', 'Either S or maxlnP needs to be provided');
+    end
+    maxlnP = zeros(1, N);
+    for i = 1:N
+        maxlnP(i) = max(log(S{i}(:, 1)));
+    end
 end
 
 if noX0 && mode ~= 5
@@ -72,7 +85,7 @@ if noX0 && mode ~= 5
     if ~strcmp(optimget(options, 'Display'), 'off')
         disp('Solve IAST for initial guess')
         options_IAST = optimset('Display', 'iter');
-        [Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = IAST_solve(exp(lnP), [], 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'options', options_IAST, 'mode', 1);
+        [Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = IAST_solve(exp(lnP), [], 'isotherm', isotherm, 'minlnP', minlnP, 'maxlnP', maxlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'options', options_IAST, 'mode', 1);
     end
 else
     Q_IAST = [];
@@ -108,25 +121,25 @@ elseif mode == 4
             Mb{j}=M{j}(i:i+batch-1, :);
         end
         x0b = [x(N*(i-1)+1:N*(i-1+batch)), x(end-N_EoS_param+1:end)]
-        objFunc = @(y)RAST_func(y, isotherm, Mb, EoS, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv);
+        objFunc = @(y)RAST_func(y, isotherm, Mb, EoS, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv, 'tol', tol);
         lb = [repmat(minlnP,1,batch), -Inf*ones(1,N_EoS_param-1), 0];
         [xb,fval,exitflag,output,lambda,grad,hessian]=fmincon(objFunc,x0b,[],[],[],[],lb,[],[],options_b);
         x(N*(i-1)+1:N*(i-1+batch)) = xb(1:end-N_EoS_param);
         x(end-N_EoS_param+1:end) = (x(end-N_EoS_param+1:end)*(i-1) + xb(end-N_EoS_param+1:end))/i
     end
-    objFunc = @(y)RAST_func(y, isotherm, M, EoS, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv);
+    objFunc = @(y)RAST_func(y, isotherm, M, EoS, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv, 'tol', tol);
     lb = [repmat(minlnP,1,ndata), -Inf*ones(1,N_EoS_param-1), 0];
-    ub = [Inf*ones(1, ndata*N), Inf*ones(1,N_EoS_param-1), 1e-2];
+    ub = [repmat(2*maxlnP,1,ndata), Inf*ones(1,N_EoS_param-1), C_ub];
     [x,fval,exitflag,output,lambda,grad,hessian]=fmincon(objFunc,x,[],[],[],[],lb,ub,[],options);
     [err, Q_predicted, lnP0, psi] = objFunc(x);
 elseif mode == 5
     if noX0
         x0 = ones(1, N_EoS_param);  % many EoS return 1 as activity coefficients when all parameters are zero
     end
-    objFunc = @(x)RAST_func_IAST_solve(x, isotherm, M, EoS, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv);
+    objFunc = @(x)RAST_func_IAST_solve(x, isotherm, M, EoS, 'minlnP', minlnP, 'maxlnP', maxlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv, 'tol', tol);
 %     [x, fval, exitflag, output] = fminsearch(objFunc, x0, options);
     lb = [-Inf*ones(1,N_EoS_param-1), 0];
-    ub = [Inf*ones(1,N_EoS_param-1), 1e-2];
+    ub = [Inf*ones(1,N_EoS_param-1), C_ub];
     [x,fval,exitflag,output,lambda,grad,hessian]=fmincon(objFunc,x0,[],[],[],[],lb,ub,[],options);
     [err, Q_predicted, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = objFunc(x);
     lnP0 = lnP0_IAST;
@@ -141,12 +154,12 @@ elseif mode == 1 || mode == 2 || mode == 102
     end
     for i = 1 : ndata  % mixture partial pressures
         fprintf('\n======Data point %d ======\n', i);
-        func = @(x)RAST_func_per_point(x, isotherm, lnP(i, :), Q(i, :), 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'mode', mode);
+        func = @(x)RAST_func_per_point(x, isotherm, lnP(i, :), Q(i, :), 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'mode', mode, 'tol', tol);
         if mode == 1
             [x(i,:),fval,exitflag,output,jacobian] = fsolve(func, x0(i, :), options);
         elseif mode == 2 || mode == 102
             lb = [minlnP, -Inf*zeros(1, N)];
-            ub = [Inf*ones(1, N), Inf*zeros(1, N)];
+            ub = [2*maxlnP, Inf*zeros(1, N)];
             [x(i,:),resnorm,residual,exitflag,output,lambda,jacobian] = lsqnonlin(func, x0(i, :), lb, ub, options);
         end
         [err(i, :), Q_predicted(i, :), lnP0(i, :), psi(i, :)] = func(x(i,:));
