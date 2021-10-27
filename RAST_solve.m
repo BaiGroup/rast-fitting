@@ -165,8 +165,8 @@ elseif mode == 1 || mode == 2 || mode == 102
     for i = 1 : ndata  % mixture partial pressures
         fprintf('\n======Data point %d ======\n', i);
         func = @(x)RAST_func_per_point(x, isotherm, lnP(i, :), Q(i, :), 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'mode', mode, 'tol', tol);
-        lb = [minlnP, -Inf*zeros(1, N)];
-        ub = [2*maxlnP, Inf*zeros(1, N)];
+        lb = [minlnP, -Inf*ones(1, N)];
+        ub = [2*maxlnP, Inf*ones(1, N)];
         % if mode == 1
             % [x(i, :), fval, exitflag, output, jacobian] = fsolve(func, x0(i, :), options);
         % elseif mode == 2 || mode == 102
