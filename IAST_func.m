@@ -104,7 +104,7 @@ else
     error('IAST_func:UnknownMode','Mode parameter outside known choices.')
 end
 
-gamma = EoS([x(1:N-1), psi(N)]);
+gamma = EoS([x(1:N-1), mean(psi)]);
 if mode == 1 || mode == -1
     err(1:N) = exp(lnP-lnP0) - z.*gamma;
 elseif mode == 2 || mode == -2 || mode == 102

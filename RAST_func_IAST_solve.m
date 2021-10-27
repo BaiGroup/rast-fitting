@@ -13,7 +13,7 @@ end
 
 options_0 = optimset('Display', 'off');
 names          = {'minlnP'; 'maxlnP'; 'ads_pot'; 'inv_ads_pot'; 'EoS_deriv'; 'mode'; 'x0'; 'tol'; 'options'};
-default_values = {      [];       [];        [];            [];          [];      2;   [];  1e-5; options_0};
+default_values = {      [];       [];        [];            [];          [];      1;   [];  1e-5; options_0};
 opt_args = process_variable_arguments(names, default_values, varargin);
 minlnP = opt_args.('minlnP');
 maxlnP = opt_args.('maxlnP');
@@ -58,6 +58,8 @@ if ~strcmp(optimget(options, 'Display'), 'off')
     disp('exitflags_IAST: ')
     disp(exitflags_IAST)
 end
-err = sum(((Q_predicted - Q)./Q).^2, 'all');
+diff_sq = ((Q_predicted - Q)./Q).^2;
+diff_sq_valid = diff_sq(exitflags_IAST > 0, :);
+err = sum(diff_sq_valid, 'all') / numel(diff_sq_valid);
 
 end

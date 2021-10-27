@@ -42,7 +42,7 @@ if N < 2
     error('IAST_solve:TooFewComponents', 'System must have at least two components');
 end
 
-options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 800, 'MaxIter', 100, 'TolFun', 1e-4, 'TolX', 1e-5, 'Display', 'off');
+options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 800, 'MaxIter', 100, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'off');
 
 names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'tol'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'};
 default_values = {        [];       [];       [];    []; options_0;      1;   [];  1e-5;          [];        []; []};
@@ -111,24 +111,22 @@ for i = 1 : ndata  % mixture partial pressures
         fprintf('\n======Data point %d ======\n', i);
     end
     func = @(x)IAST_func(x, lnP_mixture(i, :), 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', EoS, 'mode', mode, 'tol', tol);
-    if mode == 1 || mode == -1
-        [x1,fval,exitflags(i),output,jacobian] = fsolve(func, x0(i, :), options);
-    elseif mode == 2 || mode == -2 || mode == 102
-        if mode == -2
-            lb = [zeros(1, N-1), 0];
-            ub = [ones(1, N-1), Inf];
-        elseif mode == 2 || mode == 102
-            lb = [zeros(1, N-1), minlnP];
-            ub = [ones(1, N-1), 2*maxlnP];
-        end
-        if mode == 2 || mode == -2
-            [x1,resnorm,residual,exitflags(i),output,lambda,jacobian] = lsqnonlin(func, x0(i, :), lb, ub, options);
-        elseif mode == 102
-            prob = createOptimProblem('lsqnonlin', 'objective', func, 'x0', x0(i, :), ...
-                'lb', lb, 'ub', ub, 'options', options);
-            ms = MultiStart('Display', 'iter', 'TolFun', 1e-3, 'TolX', 1e-4, 'UseParallel', 'always');
-            [x1, fval, exitflags(i), output, allmins] = run(ms, prob, 10);
-        end
+    if mode == -1 || mode == -2
+        lb = [zeros(1, N-1), 0];
+        ub = [ones(1, N-1), Inf];
+    elseif mode == 1 || mode == 2 || mode == 102
+        lb = [zeros(1, N-1), minlnP];
+        ub = [ones(1, N-1), 2*maxlnP];
+    end
+    if mode == 102
+        prob = createOptimProblem('lsqnonlin', 'objective', func, 'x0', x0(i, :), ...
+            'lb', lb, 'ub', ub, 'options', options);
+        ms = MultiStart('Display', 'iter', 'TolFun', 1e-3, 'TolX', 1e-4, 'UseParallel', 'always');
+        [x1, fval, exitflags(i), output, allmins] = run(ms, prob, 10);
+    else %if mode == 1 || mode == -1
+        % [x1,fval,exitflags(i),output,jacobian] = fsolve(func, x0(i, :), options);
+    % else
+        [x1, resnorm, residual, exitflags(i), output, lambda, jacobian] = lsqnonlin(func, x0(i, :), lb, ub, options);
     end
 
     x(i, :) = x1;

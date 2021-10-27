@@ -27,7 +27,7 @@ end
 N = length(M);
 ndata = size(M{1}, 1);
 
-options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 6000, 'MaxIter', 100, 'TolFun', 1e-4, 'TolX', 1e-6, 'Display', 'iter');
+options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 6000, 'MaxIter', 100, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'iter');
 names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'tol'; 'N_EoS_param'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'; 'C_ub'; 'batch'; 'skip'};
 default_values = {        [];       [];       [];    []; options_0;      1;   [];  1e-5;            [];          [];        [];            [];    Inf; 2*ndata; ndata};
 opt_args = process_variable_arguments(names, default_values, varargin);
@@ -79,6 +79,11 @@ if isempty(maxlnP)
     end
 end
 
+if isempty(EoS_deriv)
+    % central difference to calculate numerical derivative
+    EoS_deriv = @(y)(sum((log(EoS(coeff, [y(1:end-1), y(end)+tol]))-log(EoS(coeff, [y(1:end-1), y(end)-tol])))/2/tol.*y(1:end-1)));
+end
+
 if noX0 && mode ~= 5
     % Initialize using IAST solutions and activity coefficients of one
     % (probably by setting EoS parameters to zero)
@@ -100,14 +105,16 @@ psi = zeros(ndata, N);
 
 if mode == 3
     if noX0
-        x0 = [reshape(x_IAST(:, 1:N)', 1, []), reshape(x_IAST(:, N+1:end)', 1, []), zeros(1, N_EoS_param)];
+        x0 = [reshape(x_IAST(:, N:end)', 1, []), reshape(x_IAST(:, 1:N-1)', 1, []), ones(1, N_EoS_param)];
+    else
+        N_EoS_param = length(x0) - (2*N-1)*ndata;
     end
-    objFunc = @(x)RAST_obj(x, isotherm, M);
-    conFunc = @(x)RAST_const(x, isotherm, minlnP, M, EoS);
-    lb = [repmat(minlnP,1,ndata), zeros(1, (N-1)*ndata), -Inf*ones(1,length(x0)-(2*N-1)*ndata)];
-    ub = [Inf*ones(1,N*ndata), ones(1, (N-1)*ndata), Inf*ones(1,length(x0)-(2*N-1)*ndata)];
-    [x,fval,exitflag,output,lambda,grad,hessian]=fmincon(objFunc,x0,[],[],[],[],lb,ub,conFunc,options);
-    [err, Q_predicted] = objFunc(x);
+    objFunc = @(x)RAST_obj(x, isotherm, Q, EoS_deriv, 'minlnP', minlnP, 'ads_pot', ads_pot, 'tol', tol);
+    conFunc = @(x)RAST_const(x, isotherm, lnP, EoS, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'tol', tol);
+    lb = [repmat(minlnP,1,ndata), zeros(1, (N-1)*ndata), -Inf*ones(1,N_EoS_param-1), 0];
+    ub = [repmat(maxlnP,1,ndata), ones(1, (N-1)*ndata), Inf*ones(1,N_EoS_param-1), C_ub];
+    [x, fval, exitflag, output, lambda, grad, hessian] = fmincon(objFunc, x0, [], [], [], [], lb, ub, conFunc, options);
+    [err, Q_predicted, lnP0, psi] = objFunc(x);
 elseif mode == 4
     if noX0
         x0 = [reshape(x_IAST(:, N:2*N-1)', 1, []), ones(1, N_EoS_param)];
@@ -123,25 +130,28 @@ elseif mode == 4
         x0b = [x(N*(i-1)+1:N*(i-1+batch)), x(end-N_EoS_param+1:end)]
         objFunc = @(y)RAST_func(y, isotherm, Mb, EoS, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv, 'tol', tol);
         lb = [repmat(minlnP,1,batch), -Inf*ones(1,N_EoS_param-1), 0];
-        [xb,fval,exitflag,output,lambda,grad,hessian]=fmincon(objFunc,x0b,[],[],[],[],lb,[],[],options_b);
+        [xb, fval, exitflag, output, lambda, grad, hessian] = fmincon(objFunc, x0b, [], [], [], [], lb, [], [], options_b);
         x(N*(i-1)+1:N*(i-1+batch)) = xb(1:end-N_EoS_param);
         x(end-N_EoS_param+1:end) = (x(end-N_EoS_param+1:end)*(i-1) + xb(end-N_EoS_param+1:end))/i
     end
     objFunc = @(y)RAST_func(y, isotherm, M, EoS, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv, 'tol', tol);
     lb = [repmat(minlnP,1,ndata), -Inf*ones(1,N_EoS_param-1), 0];
     ub = [repmat(2*maxlnP,1,ndata), Inf*ones(1,N_EoS_param-1), C_ub];
-    [x,fval,exitflag,output,lambda,grad,hessian]=fmincon(objFunc,x,[],[],[],[],lb,ub,[],options);
+    [x, fval, exitflag, output, lambda, grad, hessian] = fmincon(objFunc, x, [], [], [], [], lb, ub, [], options);
     [err, Q_predicted, lnP0, psi] = objFunc(x);
 elseif mode == 5
     if noX0
         x0 = ones(1, N_EoS_param);  % many EoS return 1 as activity coefficients when all parameters are zero
+    else
+        N_EoS_param = length(x0);
     end
     objFunc = @(x)RAST_func_IAST_solve(x, isotherm, M, EoS, 'minlnP', minlnP, 'maxlnP', maxlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv, 'tol', tol);
 %     [x, fval, exitflag, output] = fminsearch(objFunc, x0, options);
     lb = [-Inf*ones(1,N_EoS_param-1), 0];
     ub = [Inf*ones(1,N_EoS_param-1), C_ub];
-    [x,fval,exitflag,output,lambda,grad,hessian]=fmincon(objFunc,x0,[],[],[],[],lb,ub,[],options);
-    [err, Q_predicted, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = objFunc(x);
+    [x, fval, exitflag, output, lambda, grad, hessian] = fmincon(objFunc, x0, [], [], [], [], lb, ub, [], options);
+    [err, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = objFunc(x);
+    Q_predicted = Q_IAST;
     lnP0 = lnP0_IAST;
     psi = psi_IAST;
 elseif mode == 1 || mode == 2 || mode == 102
@@ -155,13 +165,13 @@ elseif mode == 1 || mode == 2 || mode == 102
     for i = 1 : ndata  % mixture partial pressures
         fprintf('\n======Data point %d ======\n', i);
         func = @(x)RAST_func_per_point(x, isotherm, lnP(i, :), Q(i, :), 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'mode', mode, 'tol', tol);
-        if mode == 1
-            [x(i,:),fval,exitflag,output,jacobian] = fsolve(func, x0(i, :), options);
-        elseif mode == 2 || mode == 102
-            lb = [minlnP, -Inf*zeros(1, N)];
-            ub = [2*maxlnP, Inf*zeros(1, N)];
-            [x(i,:),resnorm,residual,exitflag,output,lambda,jacobian] = lsqnonlin(func, x0(i, :), lb, ub, options);
-        end
+        lb = [minlnP, -Inf*zeros(1, N)];
+        ub = [2*maxlnP, Inf*zeros(1, N)];
+        % if mode == 1
+            % [x(i, :), fval, exitflag, output, jacobian] = fsolve(func, x0(i, :), options);
+        % elseif mode == 2 || mode == 102
+        [x(i, :), resnorm, residual, exitflag, output, lambda, jacobian] = lsqnonlin(func, x0(i, :), lb, ub, options);
+        % end
         [err(i, :), Q_predicted(i, :), lnP0(i, :), psi(i, :)] = func(x(i,:));
     end
 else
