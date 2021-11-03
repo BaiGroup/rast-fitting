@@ -44,8 +44,8 @@ end
 
 options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 800, 'MaxIter', 100, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'off');
 
-names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'tol'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'};
-default_values = {        [];       [];       [];    []; options_0;      1;   [];  1e-5;          [];        []; []};
+names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'x_lb'; 'x_ub'; 'tol'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'};
+default_values = {        [];       [];       [];    []; options_0;      1;   [];     [];     [];  1e-5;          [];        []; []};
 opt_args = process_variable_arguments(names, default_values, varargin);
 isotherm = opt_args.('isotherm');
 minlnP = opt_args.('minlnP');
@@ -54,6 +54,8 @@ EoS = opt_args.('EoS');
 options = opt_args.('options');
 mode = opt_args.('mode');
 x0 = opt_args.('x0');
+x_lb = opt_args.('x_lb');
+x_ub = opt_args.('x_ub');
 tol = opt_args.('tol');
 EoS_deriv =opt_args.('EoS_deriv');
 ads_pot = opt_args.('ads_pot');
@@ -75,6 +77,14 @@ end
 
 if isempty(EoS)
     EoS = @(x)ones(1, N);
+end
+
+if isempty(x_lb)
+    x_lb = zeros(1, N-1);
+end
+
+if isempty(x_ub)
+    x_ub = ones(1, N-1);
 end
 
 options = optimset(options_0, options);
@@ -112,11 +122,11 @@ for i = 1 : ndata  % mixture partial pressures
     end
     func = @(x)IAST_func(x, lnP_mixture(i, :), 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', EoS, 'mode', mode, 'tol', tol);
     if mode == -1 || mode == -2
-        lb = [zeros(1, N-1), 0];
-        ub = [ones(1, N-1), Inf];
+        lb = [x_lb, 0];
+        ub = [x_ub, Inf];
     elseif mode == 1 || mode == 2 || mode == 102
-        lb = [zeros(1, N-1), minlnP];
-        ub = [ones(1, N-1), 2*maxlnP];
+        lb = [x_lb, minlnP];
+        ub = [x_ub, 2*maxlnP];
     end
     if mode == 102
         prob = createOptimProblem('lsqnonlin', 'objective', func, 'x0', x0(i, :), ...

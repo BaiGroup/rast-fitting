@@ -8,6 +8,16 @@ p_sat_H2O=exp(1.50116)*1e3;  % T=298K
 V_H2O=18.015e-6/0.991665;  % g/mL -> m^3/mol
 water(:,1)=exp((water(:,1)-p_sat_H2O)*V_H2O/8.314/298)*p_sat_H2O;
 
+%% MFI-1/323K data
+load('MFI-1-323K.mat');
+set(0,'DefaultTextInterpreter','latex');
+options=optimset('Display','iter');
+
+% Calculate vapor pressure for high pressure liquid water
+p_sat_H2O=18.165e3;  % T=323K
+V_H2O=18.46e-6;  % m^3/mol
+% water(:,1)=exp((water(:,1)-p_sat_H2O)*V_H2O/8.314/323)*p_sat_H2O;
+
 %% LTA-0/323K data
 load('LTA-0-323K.mat');
 set(0,'DefaultTextInterpreter','latex');

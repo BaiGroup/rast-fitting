@@ -28,8 +28,8 @@ N = length(M);
 ndata = size(M{1}, 1);
 
 options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 6000, 'MaxIter', 100, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'iter');
-names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'tol'; 'N_EoS_param'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'; 'C_ub'; 'g_lb'; 'g_ub'; 'batch'; 'skip'};
-default_values = {        [];       [];       [];    []; options_0;      1;   [];  1e-5;            [];          [];        [];            [];    Inf;   -Inf;    Inf; 2*ndata; ndata};
+names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'x_lb'; 'x_ub'; 'tol'; 'N_EoS_param'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'; 'C_ub'; 'g_lb'; 'g_ub'; 'batch'; 'skip'};
+default_values = {        [];       [];       [];    []; options_0;      1;   [];      0;      1;  1e-5;            [];          [];        [];            [];    Inf;   -Inf;    Inf; 2*ndata; ndata};
 opt_args = process_variable_arguments(names, default_values, varargin);
 isotherm = opt_args.('isotherm');
 minlnP = opt_args.('minlnP');
@@ -38,6 +38,8 @@ EoS = opt_args.('EoS');
 options = opt_args.('options');
 mode = opt_args.('mode');
 x0 = opt_args.('x0');
+x_lb = opt_args.('x_lb');
+x_ub = opt_args.('x_ub');
 tol = opt_args.('tol');
 N_EoS_param = opt_args.('N_EoS_param');
 EoS_deriv = opt_args.('EoS_deriv');
@@ -58,6 +60,14 @@ if isempty(x0)
     end
 else
     noX0 = false;
+end
+
+if isempty(x_lb)
+    x_lb = zeros(1, N-1);
+end
+
+if isempty(x_ub)
+    x_ub = ones(1, N-1);
 end
 
 lnP = zeros(ndata, N);
@@ -113,8 +123,8 @@ if mode == 3
     end
     objFunc = @(x)RAST_obj(x, isotherm, Q, EoS_deriv, 'minlnP', minlnP, 'ads_pot', ads_pot, 'tol', tol);
     conFunc = @(x)RAST_const(x, isotherm, lnP, EoS, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'tol', tol);
-    lb = [repmat(minlnP,1,ndata), zeros(1, (N-1)*ndata), g_lb*ones(1,N_EoS_param-1), 0];
-    ub = [repmat(maxlnP,1,ndata), ones(1, (N-1)*ndata), g_ub*ones(1,N_EoS_param-1), C_ub];
+    lb = [repmat(minlnP, 1, ndata), repmat(x_lb, 1, ndata), g_lb*ones(1, N_EoS_param-1), 0];
+    ub = [repmat(maxlnP, 1, ndata), repmat(x_ub, 1, ndata), g_ub*ones(1, N_EoS_param-1), C_ub];
     [x, fval, exitflag, output, lambda, grad, hessian] = fmincon(objFunc, x0, [], [], [], [], lb, ub, conFunc, options);
     [err, Q_predicted, lnP0, psi] = objFunc(x);
 elseif mode == 4
@@ -137,8 +147,8 @@ elseif mode == 4
         x(end-N_EoS_param+1:end) = (x(end-N_EoS_param+1:end)*(i-1) + xb(end-N_EoS_param+1:end))/i
     end
     objFunc = @(y)RAST_func(y, isotherm, M, EoS, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv, 'tol', tol);
-    lb = [repmat(minlnP,1,ndata), g_lb*ones(1,N_EoS_param-1), 0];
-    ub = [repmat(2*maxlnP,1,ndata), g_ub*ones(1,N_EoS_param-1), C_ub];
+    lb = [repmat(minlnP, 1, ndata), g_lb*ones(1, N_EoS_param-1), 0];
+    ub = [repmat(2*maxlnP, 1, ndata), g_ub*ones(1, N_EoS_param-1), C_ub];
     [x, fval, exitflag, output, lambda, grad, hessian] = fmincon(objFunc, x, [], [], [], [], lb, ub, [], options);
     [err, Q_predicted, lnP0, psi] = objFunc(x);
 elseif mode == 5
@@ -149,8 +159,8 @@ elseif mode == 5
     end
     objFunc = @(x)RAST_func_IAST_solve(x, isotherm, M, EoS, 'minlnP', minlnP, 'maxlnP', maxlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv, 'tol', tol);
 %     [x, fval, exitflag, output] = fminsearch(objFunc, x0, options);
-    lb = [g_lb*ones(1,N_EoS_param-1), 0];
-    ub = [g_ub*ones(1,N_EoS_param-1), C_ub];
+    lb = [g_lb*ones(1, N_EoS_param-1), 0];
+    ub = [g_ub*ones(1, N_EoS_param-1), C_ub];
     [x, fval, exitflag, output, lambda, grad, hessian] = fmincon(objFunc, x0, [], [], [], [], lb, ub, [], options);
     [err, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = objFunc(x);
     Q_predicted = Q_IAST;

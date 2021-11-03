@@ -98,7 +98,8 @@ elseif mode == 1 || mode == 2 || mode == 102
     psi(N) = ads_pot{N}(lnP0(N));
     for i = 1:N-1
         psi(i) = ads_pot{i}(lnP0(i));
-        err(N+i) = psi(N) - psi(i);
+        diff = abs(psi(N) - psi(i));
+        err(N+i) = diff/(psi(N)+tol) + diff/(psi(i)+tol);
     end
 else
     error('IAST_func:UnknownMode','Mode parameter outside known choices.')
