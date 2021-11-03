@@ -13,5 +13,6 @@ z=[x(:, 1:end-1),1-sum(x(:, 1:end-1),2)];
 fac = 1 - exp(-coeff(3)*x(:, N));
 
 gamma=[exp((z(:, 2).^2.*(coeff(2)+2*(coeff(1)-coeff(2))*z(:, 1))).*fac),exp((z(:, 1).^2.*(coeff(1)+2*(coeff(2)-coeff(1))*z(:, 2))).*fac)];
+% gamma(isinf(gamma)) = 1e3;
 
 end

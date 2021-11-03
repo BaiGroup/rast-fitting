@@ -109,6 +109,6 @@ if mode == 1 || mode == -1
     err(1:N) = exp(lnP-lnP0) - z.*gamma;
 elseif mode == 2 || mode == -2 || mode == 102
     err(1:N) = lnP - lnP0 - log(z.*gamma);
-    err(isinf(err)) = 1e6;  % protect z.*gamma being too small
 end
+% err(~isfinite(err)) = 1e6;  % protect z.*gamma being too small (mode 2) or gamma too large (mode 1)
 end
