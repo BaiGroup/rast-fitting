@@ -5,7 +5,7 @@ function coeff = fit_activity_model(EoS, N_EoS_param, z, gamma, options)
 % N_EoS_param: number of parameters in the activity model
 % z(i), 1<=i<=N-1: z_i for component i in the absorbed phase
 % gamma(i): activity coefficient for component i; default is 1
-% options: argument for fminsearch()
+% options: argument for lsqnonlin()
 
 options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 600, 'MaxIter', 100, 'Display', 'iter');
 if nargin < 5 || isempty(options)
@@ -18,6 +18,6 @@ x0 = ones(1, N_EoS_param);
 % func = @(x)(EoS(x, z)-gamma);
 func = @(x)((EoS(x, z)-gamma)./gamma);
 % func = @(x)(log(EoS(x, z)./gamma));
-[coeff,fval,exitflag,output,jacobian] = fsolve(func, x0, options);
+[coeff, resnorm, residual, exitflags, output, lambda, jacobian] = lsqnonlin(func, x0, [], [], options)
 
 end

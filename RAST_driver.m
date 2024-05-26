@@ -42,7 +42,8 @@ N = length(M);
 ndata = size(M{1}, 1);
 
 % Fitting single-component isotherms
-[isotherm, minlnP, maxlnP, ads_pot, inv_ads_pot] = fit_Langmuir_Sips(S(1));
+% [isotherm, minlnP, maxlnP, ads_pot, inv_ads_pot] = fit_Langmuir_Sips(S(1));
+[isotherm, minlnP, maxlnP, ads_pot, inv_ads_pot] = fit_piecewise_polynomial(S(1));
 [isotherm(2), minlnP(2), maxlnP(2), ads_pot(2), inv_ads_pot(2)] = fit_piecewise_polynomial(S(2));
 
 %% Plotting single-component isotherms
@@ -113,6 +114,11 @@ coeff=x(ndata*N+1:end);
 % x0 = [22.5419330501665,-50.6850374059142,0.00999789298249896];  % FAU-2, 323K
 x0 = [];
 [Q_predicted, x, err, lnP0, psi, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = RAST_solve(M, S, 'mode', 5, 'C_ub', 1e-2, 'g_lb', -1e2, 'g_ub', 1e2, 'tol', 1e-6, 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', @Margules_ads, 'x0', x0, 'N_EoS_param', 3, 'EoS_deriv', @Margules_ads_deriv);
+coeff = x;
+
+%% Mode 6
+x0 = [];
+[Q_predicted, x, err, lnP0, psi, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = RAST_solve(M, S, 'mode', 6, 'C_ub', 1e3, 'g_lb', -1e2, 'g_ub', 1e2, 'tol', 1e-6, 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', @Margules_ads, 'x0', x0, 'N_EoS_param', 3, 'EoS_deriv', @Margules_ads_deriv);
 coeff = x;
 
 %% RAST fitting with fitted EoS

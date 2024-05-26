@@ -3,7 +3,7 @@ function [isotherm, minlnP, maxlnP, ads_pot, inv_ads_pot] = fit_Langmuir_Sips(S,
 %   S{j}(i, 1:2): component j, i-th pressure (P) & loading (Q)
 %   method is passed to interp1 and defaults to 'linear'. It is used in
 %     interpolating single-component isotherms.
-%   options: argument for fsolve()
+%   options: argument for lsqnonlin()
 %
 % OUTPUT:
 %   isotherm(i), 1<=i<=N: function handle for isotherm i, Q(lnP)
@@ -29,8 +29,7 @@ for i = 1 : N  % components
     minlnP(i) = -Inf;
     x0 = ones(M, 3);
     func = @(x)(Langmuir_Sips(lnP, x(:, 1), x(:, 2), x(:, 3)) - S{i}(:,2));
-    [param, fval, exitflag, output, jacobian] = fsolve(func, x0, options);
-%     [param,fval,exitflag,output,jacobian] = lsqnonlin(func, x0, [], [], options);
+    [param, resnorm, residual, exitflags, output, lambda, jacobian] = lsqnonlin(func, x0, [], [], options);
     param
     isotherm{i} = @(x)Langmuir_Sips(x, param(:, 1), param(:, 2), param(:, 3));
     ads_pot{i} = @(x)Langmuir_Sips_ads_pot(x, param(:, 1), param(:, 2), param(:, 3));

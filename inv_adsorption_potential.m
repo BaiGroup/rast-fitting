@@ -5,5 +5,5 @@ if nargin < 3 || isempty(options)
 end
 
 func = @(y)(Psi - ads_pot(y));
-[lnP0, fval, exitflag, output] = fzero(func, 1e3, options);
+[lnP0, fval, exitflag, output] = fsolve(func, 7, options);
 end

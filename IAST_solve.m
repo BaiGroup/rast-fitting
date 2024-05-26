@@ -14,8 +14,7 @@
 %     T can be different for different components.
 %   tol is passed to IAST_func and defaults to 1e-5. It controls the
 %     precision of integrals via the trapezoidal method.
-%   options are passed to fsolve or lsqnonlin and can be contructed using
-%     optimset.
+%   options are passed to lsqnonlin and can be contructed using optimset.
 %   isotherm(i), 1<=i<=N: function handle for isotherm i, Q(lnP)
 %   minlnP(i), 1<=i<=N: lnP at which Q is zero
 %   EoS: function handle that computes the activity coefficients
@@ -30,7 +29,7 @@
 %   See Bai et al., Langmuir 28 (2012) 15566 for reference to equations
 %   and symbols.
 %
-% See also IAST_func, fsolve, optimset, interp1, ppval
+% See also IAST_func, lsqnonlin, optimset, interp1, ppval
 
 function [Q_predicted, x, err, lnP0, psi, exitflags] = IAST_solve(M, S, varargin)
 if nargin < 2 || rem(nargin,2) ~= 0
@@ -133,9 +132,7 @@ for i = 1 : ndata  % mixture partial pressures
             'lb', lb, 'ub', ub, 'options', options);
         ms = MultiStart('Display', 'iter', 'TolFun', 1e-3, 'TolX', 1e-4, 'UseParallel', 'always');
         [x1, fval, exitflags(i), output, allmins] = run(ms, prob, 10);
-    else %if mode == 1 || mode == -1
-        % [x1,fval,exitflags(i),output,jacobian] = fsolve(func, x0(i, :), options);
-    % else
+    else
         [x1, resnorm, residual, exitflags(i), output, lambda, jacobian] = lsqnonlin(func, x0(i, :), lb, ub, options);
     end
 

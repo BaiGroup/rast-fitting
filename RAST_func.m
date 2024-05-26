@@ -30,7 +30,6 @@ for i = 1 : N  % components
     Q(:, i) = M{i}(:, 2);
 end
 
-
 z = Q ./ sum(Q, 2);
 coeff = x(ndata*N+1:end);
 EoS_with_coeff = @(y)EoS(coeff, y);

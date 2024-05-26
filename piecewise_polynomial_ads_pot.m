@@ -1,6 +1,6 @@
 function y = piecewise_polynomial_ads_pot(maxlnP, isotherm_pp, minlnP)
 % Analytical integration of piecewise polynomials to compute adsorption
-% potential
+% potential. Only works for linear functions for now due to extrapolations.
 
 % coeffs(j, 1) * [x - breaks(j)] + coeffs(j, 2) for interval [breaks(j), breaks(j+1)]
 [breaks, coeffs, num_interval, num_coeffs] = unmkpp(isotherm_pp);
