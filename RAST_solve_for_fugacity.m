@@ -6,14 +6,16 @@ function [err, gamma, lnP0, psi] = RAST_solve_for_fugacity(x, M, EoS, varargin)
 % M{j}(i, 1:2): component j, i-th partial pressure & loading
 % EoS: function handle that computes the activity coefficients
 %      [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N])
+% mode: 6 minimizes the squared errors in ln(P) and S_1j
+%       7 minimizes the squared errors in ln(P_i)
 
 if nargin < 3 || rem(nargin,2) ~= 1
     error('RAST_solve_for_fugacity:Number of arguments incorrect');
 end
 
 options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 800, 'MaxIter', 100, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'off');
-names          = {'isotherm'; 'minlnP'; 'ads_pot'; 'inv_ads_pot'; 'EoS_deriv'; 'tol'; 'options'};
-default_values = {        [];       [];        [];            [];          [];  1e-5; options_0};
+names          = {'isotherm'; 'minlnP'; 'ads_pot'; 'inv_ads_pot'; 'EoS_deriv'; 'tol'; 'options'; 'mode'};
+default_values = {        [];       [];        [];            [];          [];  1e-5; options_0; 6};
 opt_args = process_variable_arguments(names, default_values, varargin);
 isotherm = opt_args.('isotherm');
 minlnP = opt_args.('minlnP');
@@ -22,6 +24,7 @@ inv_ads_pot = opt_args.('inv_ads_pot');
 EoS_deriv = opt_args.('EoS_deriv');
 tol = opt_args.('tol');
 options = opt_args.('options');
+mode = opt_args.('mode');
 
 N = length(M);
 ndata = size(M{1}, 1);
@@ -82,7 +85,7 @@ lnP_p = zeros(ndata, N);
 for i = 1 : ndata
     func = @(y)excess_loading(y, Q_t(i), z(i, :), isotherm, inv_ads_pot, EoS_deriv_with_coeff);
     x0 = 0;
-    [psi(i), fval, exitflag, output, lambda, grad, hessian] = fmincon(func, x0, [], [], [], [], 0, [], [], options);
+    [psi(i), resnorm, residual, exitflag, output, lambda, jacobian] = lsqnonlin(func, x0, 0, [], options);
     gamma(i, :) = EoS_with_coeff([z(i, 1:end-1), psi(i)]);
     for j = 1 : N
         lnP0(i, j) = inv_ads_pot{j}(psi(i));
@@ -90,13 +93,21 @@ for i = 1 : ndata
     lnP_p(i, :) = lnP0(i, :) + log(gamma(i, :) .* z(i, :));
 end
 
-P_p = exp(lnP_p);
-P_p_t = sum(P_p, 2);
-y_p = P_p ./ P_p_t;
-selectivity_p = (z(:, 1) ./ y_p(:, 1)) ./ (z(:, 2:end) ./ y_p(:, 2:end));
-P = exp(lnP);
-P_t = sum(P, 2);
-y = P ./ P_t;
-selectivity = (z(:, 1) ./ y(:, 1)) ./ (z(:, 2:end) ./ y(:, 2:end));
-err = sum((log(P_p_t) - log(P_t)).^2) + sum((selectivity_p - selectivity).^2, 'all');
+if mode == 6
+    P_p = exp(lnP_p);
+    P_p_t = sum(P_p, 2);
+    y_p = P_p ./ P_p_t;
+    selectivity_p = (z(:, 1) ./ y_p(:, 1)) ./ (z(:, 2:end) ./ y_p(:, 2:end));
+    P = exp(lnP);
+    P_t = sum(P, 2);
+    y = P ./ P_t;
+    selectivity = (z(:, 1) ./ y(:, 1)) ./ (z(:, 2:end) ./ y(:, 2:end));
+    err_P = sum((log(P_p_t) - log(P_t)).^2);
+    err_S = sum((selectivity_p - selectivity).^2, 'all');
+    err = err_P + err_S;
+elseif mode == 7
+    err = sum((lnP_p - lnP).^2, 'all');
+else
+    error('RAST_solve_for_fugacity:UnknownMode','Mode parameter outside known choices.')
+end
 end

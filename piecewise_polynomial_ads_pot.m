@@ -5,6 +5,10 @@ function y = piecewise_polynomial_ads_pot(maxlnP, isotherm_pp, minlnP)
 % coeffs(j, 1) * [x - breaks(j)] + coeffs(j, 2) for interval [breaks(j), breaks(j+1)]
 [breaks, coeffs, num_interval, num_coeffs] = unmkpp(isotherm_pp);
 
+if num_coeffs ~= 2
+    error('piecewise_polynomial_ads_pot: Only works for linear functions for now');
+end
+
 % Extend in both directions so that we can do extrapolations
 coeffs = [coeffs(1, 1), coeffs(1,1)*(minlnP-breaks(1))+coeffs(1,2); coeffs; coeffs(end, 1), coeffs(end, 1)*(breaks(end)-breaks(end-1))+coeffs(end, 2)];
 breaks = [minlnP, breaks, maxlnP];

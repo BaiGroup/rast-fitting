@@ -31,7 +31,7 @@ for i = 1 : N  % components
     isotherm{i} = @(x)ppval(isotherm_pp, x);
     [minlnP(i), fval, exitflag, output, jacobian] = fsolve(isotherm{i}, min(lnP), options);
     ads_pot{i} = @(y)piecewise_polynomial_ads_pot(y, isotherm_pp, minlnP(i));
-    inv_ads_pot{i} = [];
+    inv_ads_pot{i} = @(x)piecewise_polynomial_inv_ads_pot(x, isotherm_pp, minlnP(i));
 end
 
 end

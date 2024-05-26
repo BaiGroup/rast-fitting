@@ -5,19 +5,23 @@ function [predicted, x, err, lnP0, psi, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi
 % EoS: function handle that computes the activity coefficients
 %      [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N])
 % options: argument for fmincon()
-% mode: 1 or 2 finds the best-fit activity coefficients for each data point
+% mode: a) The following modes find the best-fit activity coefficients for
+%       each data point:
 %       1 uses P*y1/P_i^0 - x_i*gamma_i = 0
 %       2 uses ln(P*y1) = ln(P_i^0) + ln(x_i*gamma_i), gamma_i cannot be
 %       negative during optimizations
-%       >2 solves for the EoS parameters that best reproduces the entire
-%       binary isotherm
+%       102 uses MultiStart() for mode 2
+%       b) The following modes solve for the EoS parameters that best
+%       reproduces the entire binary isotherm:
 %       3 Minimize the squared errors in loadings with the AST
 %       equations as constraints
 %       4 Minimize the squared errors in AST equations AND loadings
 %       5 Minimize the squared errors in loadings with AST equations
 %       solved by IAST_solve() at each iteration. Computationally extremely
 %       expensive.
-%       6 Minimize the squared errors in ln(P) and S_1j
+%       6 or 7 solves for P and y_i given binary isotherms, q_i
+%       6 minimizes the squared errors in ln(P) and S_1j
+%       7 minimizes the squared errors in ln(P_i)
 % x0: initial guess for EoS parameters for mode > 1
 % N_EoS_param: number of parameters in the activity model
 
@@ -166,13 +170,13 @@ elseif mode == 5
     predicted = Q_IAST;
     lnP0 = lnP0_IAST;
     psi = psi_IAST;
-elseif mode == 6
+elseif mode == 6 || mode == 7
     if noX0
         x0 = zeros(1, N_EoS_param);  % many EoS return 1 as activity coefficients when all parameters are zero
     else
         N_EoS_param = length(x0);
     end
-    objFunc = @(x)RAST_solve_for_fugacity(x, M, EoS, 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv, 'tol', tol);
+    objFunc = @(x)RAST_solve_for_fugacity(x, M, EoS, 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv, 'mode', mode, 'tol', tol);
     lb = [g_lb*ones(1, N_EoS_param-1), 0];
     ub = [g_ub*ones(1, N_EoS_param-1), C_ub];
     [x, fval, exitflag, output, lambda, grad, hessian] = fmincon(objFunc, x0, [], [], [], [], lb, ub, [], options);

@@ -22,8 +22,8 @@
 %
 %   y(i), 1<=i<=N:
 %     mode 1 or -1 uses P*y1/P_i^0 - x_i*gamma_i = 0
-%     2 or -2 uses ln(P*y1) = ln(P_i^0) + ln(x_i*gamma_i), gamma_i cannot
-%     be negative during optimizations
+%     2, -2, or 102 uses ln(P*y1) = ln(P_i^0) + ln(x_i*gamma_i), gamma_i
+%     cannot be negative during optimizations
 %   y(N+i), 1<=i<=N-1: Raoult's law Pi_i^0 (p_i^0) = Pi_N^0 (p_N^0)
 %                  evaluated using trapezoidal expression
 %
