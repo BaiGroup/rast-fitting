@@ -1,7 +1,5 @@
 %% MFI-1/298K data
 load('MFI-1-298K.mat');
-set(0,'DefaultTextInterpreter','latex');
-options=optimset('Display','iter');
 
 % Calculate vapor pressure for high pressure liquid water
 p_sat_H2O=exp(1.50116)*1e3;  % T=298K
@@ -10,8 +8,6 @@ water(:,1)=exp((water(:,1)-p_sat_H2O)*V_H2O/8.314/298)*p_sat_H2O;
 
 %% MFI-1/323K data
 load('MFI-1-323K.mat');
-set(0,'DefaultTextInterpreter','latex');
-options=optimset('Display','iter');
 
 % Calculate vapor pressure for high pressure liquid water
 p_sat_H2O=18.165e3;  % T=323K
@@ -20,8 +16,6 @@ V_H2O=18.46e-6;  % m^3/mol
 
 %% LTA-0/323K data
 load('LTA-0-323K.mat');
-set(0,'DefaultTextInterpreter','latex');
-options=optimset('Display','iter');
 
 % Calculate vapor pressure for high pressure liquid water
 p_sat_H2O=18.165e3;  % T=323K
@@ -30,8 +24,6 @@ V_H2O=18.46e-6;  % m^3/mol
 
 %% FAU-2/323K data
 load('FAU-2-323K.mat');
-set(0,'DefaultTextInterpreter','latex');
-options=optimset('Display','iter');
 
 % Calculate vapor pressure for high pressure liquid water
 p_sat_H2O=18.165e3;  % T=323K

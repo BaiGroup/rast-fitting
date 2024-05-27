@@ -16,11 +16,11 @@ minlnP = opt_args.('minlnP');
 tol = opt_args.('tol');
 ads_pot = opt_args.('ads_pot');
 
+[ndata, N] = size(Q);
+
 if isempty(ads_pot)
     ads_pot = cell(1, N);
 end
-
-[ndata, N] = size(Q);
 
 coeff = x(ndata*(2*N-1)+1:end);
 lnP0 = reshape(x(1:ndata*N), N, ndata)';

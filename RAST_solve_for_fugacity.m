@@ -5,7 +5,10 @@ function [err, gamma, lnP0, psi] = RAST_solve_for_fugacity(x, M, EoS, varargin)
 % minlnP(i), 1<=i<=N: lnP at which Q is zero
 % M{j}(i, 1:2): component j, i-th partial pressure & loading
 % EoS: function handle that computes the activity coefficients
-%      [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N])
+%   [\gamma_1, ..., \gamma_N] = EoS([coeff_1, ..., coeff_M], [z_1, ..., z_N-1, \Psi])
+% EoS_deriv: function handle that computes the excess inverse loading
+%            d(G^ex/RT) / d\Psi
+%   (1/Q_t)^excess = EoS_deriv([coeff_1, ..., coeff_M], [z_1, ..., z_N-1, \Psi])
 % mode: 6 minimizes the squared errors in ln(P) and S_1j
 %       7 minimizes the squared errors in ln(P_i)
 
@@ -13,7 +16,9 @@ if nargin < 3 || rem(nargin,2) ~= 1
     error('RAST_solve_for_fugacity:Number of arguments incorrect');
 end
 
-options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 800, 'MaxIter', 100, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'off');
+N = length(M);
+ndata = size(M{1}, 1);
+options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', ndata*N*200, 'MaxIter', ndata*N*3, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'off');
 names          = {'isotherm'; 'minlnP'; 'ads_pot'; 'inv_ads_pot'; 'EoS_deriv'; 'tol'; 'options'; 'mode'};
 default_values = {        [];       [];        [];            [];          [];  1e-5; options_0; 6};
 opt_args = process_variable_arguments(names, default_values, varargin);
@@ -26,8 +31,6 @@ tol = opt_args.('tol');
 options = opt_args.('options');
 mode = opt_args.('mode');
 
-N = length(M);
-ndata = size(M{1}, 1);
 lnP = zeros(ndata, N);
 Q = zeros(ndata, N);
 

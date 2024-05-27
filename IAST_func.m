@@ -18,7 +18,7 @@
 %   EoS: A function handle that takes N mole fractions and adsorption
 %       potential and returns N activity coefficients. EoS is optional and
 %       defaults to 1 (ideal adsorbed solution)
-%      [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N-1, Psi])
+%      [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N-1, \Psi])
 %
 %   y(i), 1<=i<=N:
 %     mode 1 or -1 uses P*y1/P_i^0 - x_i*gamma_i = 0

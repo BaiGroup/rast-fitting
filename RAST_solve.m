@@ -3,7 +3,10 @@ function [predicted, x, err, lnP0, psi, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi
 % M{j}(i, 1:2): component j, i-th partial pressure & loading
 % S{j}(i, 1:2): component j, i-th pressure & loading
 % EoS: function handle that computes the activity coefficients
-%      [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N])
+%   [\gamma_1, ..., \gamma_N] = EoS([coeff_1, ..., coeff_M], [z_1, ..., z_N-1, \Psi])
+% EoS_deriv: function handle that computes the excess inverse loading
+%            d(G^ex/RT) / d\Psi
+%   (1/Q_t)^excess = EoS_deriv([coeff_1, ..., coeff_M], [z_1, ..., z_N-1, \Psi])
 % options: argument for fmincon()
 % mode: a) The following modes find the best-fit activity coefficients for
 %       each data point:
@@ -32,7 +35,7 @@ end
 N = length(M);
 ndata = size(M{1}, 1);
 
-options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 6000, 'MaxIter', 100, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'iter');
+options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', ndata*N*1000, 'MaxIter', ndata*N*3, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'iter');
 names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'x_lb'; 'x_ub'; 'tol'; 'N_EoS_param'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'; 'C_ub'; 'g_lb'; 'g_ub'; 'batch'; 'skip'};
 default_values = {        [];       [];       [];    []; options_0;      1;   [];      0;      1;  1e-5;            [];          [];        [];            [];    Inf;   -Inf;    Inf; 2*ndata; ndata};
 opt_args = process_variable_arguments(names, default_values, varargin);
@@ -118,7 +121,6 @@ else
 end
 
 lnP0 = zeros(ndata, N);
-psi = zeros(ndata, N);
 
 if mode == 3
     if noX0
@@ -144,7 +146,7 @@ elseif mode == 4
         for j = 1:N
             Mb{j}=M{j}(i:i+batch-1, :);
         end
-        x0b = [x(N*(i-1)+1:N*(i-1+batch)), x(end-N_EoS_param+1:end)]
+        x0b = [x(N*(i-1)+1:N*(i-1+batch)), x(end-N_EoS_param+1:end)];
         objFunc = @(y)RAST_func(y, isotherm, Mb, EoS, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', EoS_deriv, 'tol', tol);
         lb = [repmat(minlnP,1,batch), -Inf*ones(1,N_EoS_param-1), 0];
         [xb, fval, exitflag, output, lambda, grad, hessian] = fmincon(objFunc, x0b, [], [], [], [], lb, [], [], options_b);

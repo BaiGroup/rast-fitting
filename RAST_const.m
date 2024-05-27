@@ -6,7 +6,7 @@ function [c, ceq] = RAST_const(x, isotherm, lnP, EoS, varargin)
 % isotherm(i), 1<=i<=N: function handle for isotherm i, Q(lnP)
 % minlnP(i), 1<=i<=N: lnP at which Q is zero
 % EoS: function handle that computes the activity coefficients
-%      [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N])
+%      [\gamma_1, ..., \gamma_N] = EoS([coeff_1, ..., coeff_M], [z_1, ..., z_N-1, \Psi])
 
 if nargin < 4 || rem(nargin,2) ~= 0
     error('RAST_const:Number of arguments incorrect');

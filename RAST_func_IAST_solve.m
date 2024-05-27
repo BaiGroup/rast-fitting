@@ -5,7 +5,10 @@ function [err, Q_predicted, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = RAST_func_I
 % minlnP(i), 1<=i<=N: lnP at which Q is zero
 % M{j}(i, 1:2): component j, i-th partial pressure & loading
 % EoS: function handle that computes the activity coefficients
-%      [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N])
+%      [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N-1, \Psi])
+% EoS_deriv: function handle that computes the excess inverse loading
+%            d(G^ex/RT) / d\Psi
+%   (1/Q_t)^excess = EoS_deriv([coeff_1, ..., coeff_M], [z_1, ..., z_N-1, \Psi])
 
 if nargin < 4 || rem(nargin,2) ~= 0
     error('RAST_func:Number of arguments incorrect');

@@ -18,7 +18,10 @@
 %   isotherm(i), 1<=i<=N: function handle for isotherm i, Q(lnP)
 %   minlnP(i), 1<=i<=N: lnP at which Q is zero
 %   EoS: function handle that computes the activity coefficients
-%     [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N-1, Psi])
+%     [\gamma_1, ..., \gamma_N] = EoS([z_1, z_2, ..., z_N-1, \Psi])
+%   EoS_deriv: function handle that computes the excess inverse loading
+%              d(G^ex/RT) / d\Psi
+%     (1/Q_t)^excess = EoS_deriv([coeff_1, ..., coeff_M], [z_1, ..., z_N-1, \Psi])
 %   mode: 1 or -1 uses fsolve() and P*y1/P_i^0 - x_i*gamma_i = 0
 %     2 or -2 uses lsqnonlin() and ln(P*y1) = ln(P_i^0) + ln(x_i*gamma_i),
 %     gamma_i cannot be negative during optimizations
@@ -41,7 +44,7 @@ if N < 2
     error('IAST_solve:TooFewComponents', 'System must have at least two components');
 end
 
-options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', 800, 'MaxIter', 100, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'off');
+options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', ndata*N*250, 'MaxIter', ndata*N*3, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'off');
 
 names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'x_lb'; 'x_ub'; 'tol'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'};
 default_values = {        [];       [];       [];    []; options_0;      1;   [];     [];     [];  1e-5;          [];        []; []};
