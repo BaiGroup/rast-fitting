@@ -100,7 +100,7 @@ end
 
 if isempty(EoS_deriv)
     % central difference to calculate numerical derivative
-    EoS_deriv = @(x)(sum((log(EoS([x(1:end-1), x(end)+tol]))-log(EoS([x(1:end-1), x(end)-tol])))/2/tol.*x(1:end-1)));
+    EoS_deriv = @(x)(sum((log(EoS([x(1:end-1), x(end)+tol]))-log(EoS([x(1:end-1), x(end)-tol])))/2/tol.*[x(1:end-1),1-sum(x(1:end-1))]));
 end
 
 Q_tot = zeros(ndata, 1);

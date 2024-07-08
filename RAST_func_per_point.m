@@ -34,6 +34,6 @@ for j=1:N
 end
 Q_predicted = 1 / Q_predicted * z;
 
-err = [IAST_err, ((Q_predicted-Q)./Q)];
+err = [IAST_err, relative_error_safe(Q_predicted, Q)];
 
 end

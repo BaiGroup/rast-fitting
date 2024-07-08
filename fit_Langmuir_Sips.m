@@ -28,7 +28,7 @@ for i = 1 : N  % components
     maxlnP(i) = max(lnP);
     minlnP(i) = -Inf;
     x0 = ones(M, 3);
-    func = @(x)(abs(Langmuir_Sips(lnP, x(:, 1), x(:, 2), x(:, 3)) - S{i}(:,2))./S{i}(:,2));
+    func = @(x)(relative_error_safe(Langmuir_Sips(lnP, x(:, 1), x(:, 2), x(:, 3)), S{i}(:,2)));
     [param, resnorm, residual, exitflags, output, lambda, jacobian] = lsqnonlin(func, x0, [], [], options);
     param
     isotherm{i} = @(x)Langmuir_Sips(x, param(:, 1), param(:, 2), param(:, 3));

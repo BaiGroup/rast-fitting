@@ -37,7 +37,7 @@ EoS_with_coeff = @(y)EoS(coeff, y);
 
 if isempty(EoS_deriv)
     % central difference to calculate numerical derivative
-    EoS_deriv_with_coeff = @(y)(sum((log(EoS_with_coeff([y(1:end-1), y(end)+tol]))-log(EoS_with_coeff([y(1:end-1), y(end)-tol])))/2/tol.*y(1:end-1)));
+    EoS_deriv_with_coeff = @(y)(sum((log(EoS_with_coeff([y(1:end-1), y(end)+tol]))-log(EoS_with_coeff([y(1:end-1), y(end)-tol])))/2/tol.*[y(1:end-1),1-sum(y(1:end-1))]));
 else
     EoS_deriv_with_coeff = @(y)EoS_deriv(coeff, y);
 end
@@ -59,5 +59,5 @@ for i = 1 : ndata
     err = err + sum(IAST_err.^2);
 end
 
-err = err + sum(((Q_predicted-Q)./Q).^2, 'all');
+err = err + sum((relative_error_safe(Q_predicted, Q)).^2, 'all');
 end
