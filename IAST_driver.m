@@ -1,31 +1,63 @@
-%% DRIVER: used to run IAST calculations
+%% MFI-1/298K data
+load('MFI-1-298K.mat');
 
-% H2S/CO2/CH4
-clc; clear all
+% Calculate vapor pressure for high pressure liquid water
+p_sat_H2O=exp(1.50116)*1e3;  % T=298K
+V_H2O=18.015e-6/0.991665;  % g/mL -> m^3/mol
+water(:,1)=exp((water(:,1)-p_sat_H2O)*V_H2O/8.314/298)*p_sat_H2O;
 
-% test for git
+%% MFI-1/323K data
+load('MFI-1-323K.mat');
 
-function run_ternary(z)
+% Calculate vapor pressure for high pressure liquid water
+p_sat_H2O=18.165e3;  % T=323K
+V_H2O=18.46e-6;  % m^3/mol
+% water(:,1)=exp((water(:,1)-p_sat_H2O)*V_H2O/8.314/323)*p_sat_H2O;
 
-    h2s=importdata(sprintf('data/ternary_%s/%s_H2S_tra_298K.csv', z, z)); % p/q pairs
-    co2=importdata(sprintf('data/ternary_%s/%s_CO2_298K.csv', z, z));
-    ch4=importdata(sprintf('data/ternary_%s/%s_methane_298K.csv', z, z));
-    ternary_raw=importdata(sprintf('data/ternary_%s/%s_298K_3comp_mixture_226.csv', z, z));
-    ternary=ternary_raw.data;
+%% water/methanol
+options=optimset('Display','iter');
+S={[water(:,1),water(:,2)],[methanol(:,1),methanol(:,2)]};
+M=[methanol_water(:,1),methanol_water(:,2)];
+[Q, x, err, lnP0, psi] = IAST_solve(M, S, 'mode', 1, 'options', options);
 
-    options=optimset('Display','iter');
-    S={[h2s.data(:,1),h2s.data(:,2)],[co2.data(:,1),co2.data(:,2)],[ch4.data(:,1),ch4.data(:,2)]};
-    M=ternary(:,1)*[2,2,6]/10; %q_H2S, q_CO2, q_CH4
-    [Q, x, err, lnP0, psi] = IAST_solve(M, S, 'mode', 1, 'options', options);
+semilogx(M(:,2),methanol_water(:,4),'rs',M(:,2),methanol_water(:,3),'bo',M(:,2),Q(:,2),'md',M(:,2),Q(:,1),'c^');
+xlabel('$p$ [Pa]'); ylabel('$N$ [mol/kg]');
+legend('sim\_MeOH','sim\_H2O','IAST\_MeOH','IAST\_H2O','Location','NorthEastOutside');
 
-    run('startup.m')
-    plot([0,1],[0,1],'k');hold on
-    plot(ternary(:,3)/(ternary(:,2)+ternary(:,3)+ternary(:,4)),Q(:,2)/(Q(:,1)+Q(:,2)+Q(:,3)),'mv');hold on
-    plot(ternary(:,4)/(ternary(:,2)+ternary(:,3)+ternary(:,4)),Q(:,3)/(Q(:,1)+Q(:,2)+Q(:,3)),'ch');
-    xlabel('x_{sim}'); ylabel('x_{IAST}');
+%% water/ethanol
+options=optimset('Display','iter');
+S={[water(:,1),water(:,2)],[ethanol(:,1),ethanol(:,2)]};
+M=[ethanol_water(:,1),ethanol_water(:,2)];
+[Q, x, err, lnP0, psi] = IAST_solve(M, S, 'mode', 1, 'options', options);
+% [isotherm, minlnP, maxlnP, ads_pot, inv_ads_pot] = fit_piecewise_polynomial(S(1));
+% [isotherm(2), minlnP(2), maxlnP(2), ads_pot(2), inv_ads_pot(2)] = fit_piecewise_polynomial(S(2));
+% [Q, x, err, lnP0, psi] = IAST_solve(M, [], 'mode', 1, 'tol', 1e-6, 'isotherm', isotherm, 'minlnP', minlnP, 'maxlnP', maxlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', @(x,y)0, 'options', options);
 
-end
+%% Plotting
+semilogx(M(:,2),ethanol_water(:,4),'rs',M(:,2),ethanol_water(:,3),'bo',M(:,2),Q(:,2),'md',M(:,2),Q(:,1),'c^');
+xlabel('$p$ [Pa]'); ylabel('$N$ [mol/kg]');
+legend('sim\_EtOH','sim\_H2O','IAST\_EtOH','IAST\_H2O','Location','NorthEastOutside');
 
+%% water/methanol/ethanol
+options=optimset('Display','iter');
+S={[water(:,1),water(:,2)],[methanol(:,1),methanol(:,2)],[ethanol(:,1),ethanol(:,2)]};
+M=[ternary(:,1),ternary(:,2),ternary(:,3)];
+[Q, x, err, lnP0, psi] = IAST_solve(M, S, 'mode', 1, 'options', options);
 
-zeo='AEL-1';
-t = timeit(@run_ternary(zeo))
+%% Plotting: Ternary
+figure;
+semilogx(M(:,1),ternary(:,4),'bo',M(:,2),ternary(:,5),'rs',M(:,3),ternary(:,6),'kd',M(:,1),Q(:,1),'co',M(:,2),Q(:,2),'ms',M(:,3),Q(:,3),'yd');
+xlabel('$p$ [Pa]'); ylabel('$Q$ [mol/kg]');
+legend('sim\_H2O','sim\_MeOH','sim\_EtOH','IAST\_H2O','IAST\_MeOH','IAST\_EtOH','Location','NorthEastOutside');
+
+figure;
+loglog(M(:,2),(ternary(:,5)./ternary(:,4))./(M(:,2)./M(:,1)),'rs',M(:,3),(ternary(:,6)./ternary(:,4))./(M(:,3)./M(:,1)),'bo',M(:,2),(Q(:,2)./Q(:,1))./(M(:,2)./M(:,1)),'ms',M(:,3),(Q(:,3)./Q(:,1))./(M(:,3)./M(:,1)),'co');
+xlabel('$p$ [Pa]'); ylabel('$S$');
+legend('sim: MeOH/H2O','sim: EtOH/H2O','IAST: MeOH/H2O','IAST: EtOH/H2O','Location','NorthEastOutside');
+
+figure;
+plot([0,1],[0,1],'k');hold on
+plot(ternary(:,5)./(ternary(:,4)+ternary(:,5)+ternary(:,6)),Q(:,2)./(Q(:,1)+Q(:,2)+Q(:,3)),'mv');hold on
+plot(ternary(:,6)./(ternary(:,4)+ternary(:,5)+ternary(:,6)),Q(:,3)./(Q(:,1)+Q(:,2)+Q(:,3)),'ch');
+legend('', 'x_{MeOH}', 'x_{EtOH}', 'Location', 'NorthEastOutside');
+xlabel('$x_{\textrm{sim}}$'); ylabel('$x_{\textrm{IAST}}$');
