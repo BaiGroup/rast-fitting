@@ -14,7 +14,7 @@ p_sat_H2O=18.165e3;  % T=323K
 V_H2O=18.46e-6;  % m^3/mol
 % water(:,1)=exp((water(:,1)-p_sat_H2O)*V_H2O/8.314/323)*p_sat_H2O;
 
-%% Preparation
+%% Preparation: Binary
 set(0,'DefaultTextInterpreter','latex');
 options=optimset('Display','iter');
 
@@ -26,22 +26,48 @@ N = length(M);
 ndata = size(M{1}, 1);
 
 % Fitting single-component isotherms
-% [isotherm, minlnP, maxlnP, ads_pot, inv_ads_pot] = fit_Langmuir_Sips(S(1));
-[isotherm, minlnP, maxlnP, ads_pot, inv_ads_pot] = fit_piecewise_polynomial(S(1));
-[isotherm(2), minlnP(2), maxlnP(2), ads_pot(2), inv_ads_pot(2)] = fit_piecewise_polynomial(S(2));
+[isotherm, minlnP, maxlnP, ads_pot, inv_ads_pot] = fit_piecewise_polynomial(S);
+% [isotherm(1), minlnP(1), maxlnP(1), ads_pot(1), inv_ads_pot(1)] = fit_Langmuir_Sips(S(1));
 
-%% Plotting single-component isotherms
+%% Preparation: Ternary
+set(0,'DefaultTextInterpreter','latex');
+options=optimset('Display','iter');
+
+S={[water(:,1),water(:,2)],[methanol(:,1),methanol(:,2)],[ethanol(:,1),ethanol(:,2)]};
+M={[ternary(:,1),ternary(:,4)],[ternary(:,2),ternary(:,5)],[ternary(:,3),ternary(:,6)]};
+Q=[ternary(:,4),ternary(:,5),ternary(:,6)];
+z=Q./sum(Q,2);
+N = length(M);
+ndata = size(M{1}, 1);
+
+% Fitting single-component isotherms
+[isotherm, minlnP, maxlnP, ads_pot, inv_ads_pot] = fit_piecewise_polynomial(S);
+
+%% Plotting single-component isotherms: Binary
 lnP_plot = linspace(min(log(S{1}(:,1)))*0.9, max(log(S{1}(:,1)))*1.1, 100);
 Q_plot = isotherm{1}(lnP_plot);
-semilogx(S{1}(:,1), S{1}(:,2), 'o', 'DisplayName', 'H2O');
-hold on; semilogx(exp(lnP_plot), Q_plot, '-', 'DisplayName', 'H2O fitted');
+loglog(S{1}(:,1), S{1}(:,2), 'o', 'DisplayName', 'H2O');
+hold on; loglog(exp(lnP_plot), Q_plot, '-', 'DisplayName', 'H2O fitted');
+xlabel('$p$ [Pa]'); ylabel('$Q$ [mol/kg]');
+legend('Location','NorthEastOutside');
 
 figure;
 lnP_plot = linspace(min(log(S{2}(:,1)))*0.9, max(log(S{2}(:,1)))*1.1, 100);
 Q_plot = isotherm{2}(lnP_plot);
-semilogx(S{2}(:,1), S{2}(:,2), 'o', 'DisplayName', 'EtOH')
-hold on; semilogx(exp(lnP_plot), Q_plot, '-', 'DisplayName', 'EtOH fitted');
+loglog(S{2}(:,1), S{2}(:,2), 'o', 'DisplayName', 'EtOH')
+hold on; loglog(exp(lnP_plot), Q_plot, '-', 'DisplayName', 'EtOH fitted');
+xlabel('$p$ [Pa]'); ylabel('$Q$ [mol/kg]');
+legend('Location','NorthEastOutside');
 
+%% Plotting single-component isotherms: Ternary
+legend('MeOH', 'MeOH fitted', 'Location','NorthEastOutside');
+figure;
+lnP_plot = linspace(min(log(S{3}(:,1)))*0.9, max(log(S{3}(:,1)))*1.1, 100);
+Q_plot = isotherm{3}(lnP_plot);
+loglog(S{3}(:,1), S{3}(:,2), 'o', 'DisplayName', 'EtOH')
+hold on; loglog(exp(lnP_plot), Q_plot, '-', 'DisplayName', 'EtOH fitted');
+xlabel('$p$ [Pa]'); ylabel('$Q$ [mol/kg]');
+legend('Location','NorthEastOutside');
 %% Mode 1 or 2 or 102
 x0 = [];
 [Q_predicted, x, err, lnP0, psi, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = RAST_solve(M, S, 'mode', 1, 'tol', 1e-6, 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', @Margules, 'x0', x0);
@@ -90,12 +116,17 @@ x0 = [];
 [Q_predicted, x, err, lnP0, psi, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = RAST_solve(M, S, 'mode', 4, 'C_ub', 500, 'tol', 1e-6, 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', @Margules_ads, 'x0', x0, 'N_EoS_param', 3, 'EoS_deriv', @Margules_ads_deriv);
 coeff=x(ndata*N+1:end);
 
-%% Mode 4 with no \Psi-dependence
+%% Mode 4 with no \Psi-dependence: Binary
 % Set C_ub = 0, EoS = @Margules, N_EoS_param = 3, EoS_deriv = @(x,y)0
 % C_ub = 0 is important because C can be arbitrarily varied without
 % affecting the results
 x0 = [];
 [Q_predicted, x, err, lnP0, psi, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = RAST_solve(M, S, 'mode', 4, 'C_ub', 0, 'tol', 1e-6, 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', @Margules, 'x0', x0, 'N_EoS_param', 3, 'EoS_deriv', @(x,y)0);
+coeff=x(ndata*N+1:end);
+
+%% Mode 4 with no \Psi-dependence: Ternary
+x0 = [];
+[Q_predicted, x, err, lnP0, psi, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = RAST_solve(M, S, 'mode', 4, 'C_ub', 0, 'tol', 1e-6, 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', @Margules_3C, 'x0', x0, 'N_EoS_param', 13, 'EoS_deriv', @(x,y)0);
 coeff=x(ndata*N+1:end);
 
 %% Mode 5
@@ -108,12 +139,13 @@ x0 = [];
 [gamma, x, err, lnP0, psi, Q_IAST, x_IAST, err_IAST, lnP0_IAST, psi_IAST] = RAST_solve(M, S, 'mode', 6, 'C_ub', +Inf, 'g_lb', -1e2, 'g_ub', 1e2, 'tol', 1e-6, 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', @Margules_ads, 'x0', x0, 'N_EoS_param', 3, 'EoS_deriv', @Margules_ads_deriv);
 coeff = x;
 
-%% RAST fitting with fitted EoS
+%% RAST fitting with fitted EoS: Binary
 % x0 = [z(:,1:end-1), lnP0];
 x0 = [];
 [err, Q_predicted, x, err_IAST, lnP0_IAST, psi_IAST] = RAST_func_IAST_solve(coeff, isotherm, M, @Margules_ads, 'mode', 1, 'x_lb', [0], 'x_ub', [1], 'tol', 1e-6, 'minlnP', minlnP, 'maxlnP', maxlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', @Margules_ads_deriv, 'x0', x0, 'options', options);
 
-%% Plotting isotherms
+%% Plotting isotherms: Binary
+figure;
 semilogx(M{2}(:,1),M{2}(:,2),'rs',M{2}(:,1),M{1}(:,2),'bo',M{2}(:,1),Q_predicted(:,2),'md',M{2}(:,1),Q_predicted(:,1),'c^');
 xlabel('$p$ [Pa]'); ylabel('$Q$ [mol/kg]');
 legend('sim\_EtOH','sim\_H2O','RAST\_EtOH','RAST\_H2O','Location','NorthEastOutside');
@@ -122,6 +154,29 @@ figure;
 loglog(M{2}(:,1),(M{2}(:,2)./M{1}(:,2))./(M{2}(:,1)./M{1}(:,1)),'rs',M{2}(:,1),(Q_predicted(:,2)./Q_predicted(:,1))./(M{2}(:,1)./M{1}(:,1)),'bo');
 xlabel('$p$ [Pa]'); ylabel('$S$');
 legend('sim','RAST','Location','NorthEastOutside');
+
+%% RAST fitting with fitted EoS: Ternary
+% x0 = [z(:,1:end-1), lnP0];
+x0 = [];
+[err, Q_predicted, x, err_IAST, lnP0_IAST, psi_IAST] = RAST_func_IAST_solve(coeff, isotherm, M, @Margules_3C, 'mode', 1, 'x_lb', [0, 0], 'x_ub', [1, 1], 'tol', 1e-6, 'minlnP', minlnP, 'maxlnP', maxlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS_deriv', @(x,y)0, 'x0', x0, 'options', options);
+
+%% Plotting isotherms: Ternary
+figure;
+semilogx(M{1}(:,1),M{1}(:,2),'bo',M{2}(:,1),M{2}(:,2),'rs',M{3}(:,1),M{3}(:,2),'kd',M{1}(:,1),Q_predicted(:,1),'co',M{2}(:,1),Q_predicted(:,2),'ms',M{3}(:,1),Q_predicted(:,3),'yd');
+xlabel('$p$ [Pa]'); ylabel('$Q$ [mol/kg]');
+legend('sim\_H2O','sim\_MeOH','sim\_EtOH','RAST\_H2O','RAST\_MeOH','RAST\_EtOH','Location','NorthEastOutside');
+
+figure;
+loglog(M{2}(:,1),(M{2}(:,2)./M{1}(:,2))./(M{2}(:,1)./M{1}(:,1)),'rs',M{3}(:,1),(M{3}(:,2)./M{1}(:,2))./(M{3}(:,1)./M{1}(:,1)),'bo',M{2}(:,1),(Q_predicted(:,2)./Q_predicted(:,1))./(M{2}(:,1)./M{1}(:,1)),'ms',M{3}(:,1),(Q_predicted(:,3)./Q_predicted(:,1))./(M{3}(:,1)./M{1}(:,1)),'co');
+xlabel('$p$ [Pa]'); ylabel('$S$');
+legend('sim: MeOH/H2O','sim: EtOH/H2O','RAST: MeOH/H2O','RAST: EtOH/H2O','Location','NorthEastOutside');
+
+figure;
+plot([0,1],[0,1],'k');hold on
+plot(M{2}(:,2)./(M{1}(:,2)+M{2}(:,2)+M{3}(:,2)),Q_predicted(:,2)./(Q_predicted(:,1)+Q_predicted(:,2)+Q_predicted(:,3)),'mv');hold on
+plot(M{3}(:,2)./(M{1}(:,2)+M{2}(:,2)+M{3}(:,2)),Q_predicted(:,3)./(Q_predicted(:,1)+Q_predicted(:,2)+Q_predicted(:,3)),'ch');
+legend('', 'x_{MeOH}', 'x_{EtOH}', 'Location', 'NorthEastOutside');
+xlabel('$x_{\textrm{sim}}$'); ylabel('$x_{\textrm{IAST}}$');
 
 %% Activity coefficients
 gamma1 = Margules_ads(coeff, [x(:,1), psi_IAST(:,1)])
