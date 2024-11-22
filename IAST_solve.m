@@ -46,8 +46,8 @@ end
 
 options_0 = optimset('FinDiffType', 'central', 'FunValCheck', 'on', 'MaxFunEvals', ndata*N*250, 'MaxIter', ndata*N*3, 'TolFun', 1e-6, 'TolX', 1e-6, 'Display', 'off');
 
-names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'x_lb'; 'x_ub'; 'tol'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'};
-default_values = {        [];       [];       [];    []; options_0;      1;   [];     [];     [];  1e-5;          [];        []; []};
+names          = {'isotherm'; 'minlnP'; 'maxlnP'; 'EoS'; 'options'; 'mode'; 'x0'; 'x_lb'; 'x_ub'; 'tol'; 'EoS_deriv'; 'ads_pot'; 'inv_ads_pot'; 'scaling_factor'};
+default_values = {        [];       [];       [];    []; options_0;      1;   [];     [];     [];  1e-5;          [];        [];            [];  1};
 opt_args = process_variable_arguments(names, default_values, varargin);
 isotherm = opt_args.('isotherm');
 minlnP = opt_args.('minlnP');
@@ -62,6 +62,7 @@ tol = opt_args.('tol');
 EoS_deriv =opt_args.('EoS_deriv');
 ads_pot = opt_args.('ads_pot');
 inv_ads_pot = opt_args.('inv_ads_pot');
+scaling_factor = opt_args.('scaling_factor');
 
 if isempty(isotherm)
     [isotherm, minlnP] = fit_piecewise_polynomial(S);
@@ -122,13 +123,13 @@ for i = 1 : ndata  % mixture partial pressures
     if ~strcmp(optimget(options, 'Display'), 'off')
         fprintf('\n======Data point %d ======\n', i);
     end
-    func = @(x)IAST_func(x, lnP_mixture(i, :), 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', EoS, 'mode', mode, 'tol', tol);
+    func = @(x)IAST_func([x(1:N-1)/scaling_factor, x(N:end)], lnP_mixture(i, :), 'isotherm', isotherm, 'minlnP', minlnP, 'ads_pot', ads_pot, 'inv_ads_pot', inv_ads_pot, 'EoS', EoS, 'mode', mode, 'tol', tol);
     if mode == -1 || mode == -2
-        lb = [x_lb, 0];
-        ub = [x_ub, Inf];
+        lb = [x_lb*scaling_factor, 0];
+        ub = [x_ub*scaling_factor, Inf];
     elseif mode == 1 || mode == 2 || mode == 102
-        lb = [x_lb, minlnP];
-        ub = [x_ub, 2*maxlnP];
+        lb = [x_lb*scaling_factor, minlnP];
+        ub = [x_ub*scaling_factor, 2*maxlnP];
     end
     if mode == 102
         prob = createOptimProblem('lsqnonlin', 'objective', func, 'x0', x0(i, :), ...
@@ -136,16 +137,16 @@ for i = 1 : ndata  % mixture partial pressures
         ms = MultiStart('Display', 'iter', 'TolFun', 1e-3, 'TolX', 1e-4, 'UseParallel', 'always');
         [x1, fval, exitflags(i), output, allmins] = run(ms, prob, 10);
     else
-        [x1, resnorm, residual, exitflags(i), output, lambda, jacobian] = lsqnonlin(func, x0(i, :), lb, ub, options);
+        [x1, resnorm, residual, exitflags(i), output, lambda, jacobian] = lsqnonlin(func, [x0(i, 1:N-1)*scaling_factor, x0(i, N:end)], lb, ub, options);
     end
 
-    x(i, :) = x1;
+    x(i, :) = [x1(1:N-1)/scaling_factor, x1(N:end)];
     [err(i, :), lnP0(i, :), psi(i, :)] = func(x1);
     if strcmp(optimget(options, 'Display'), 'final')
         disp('err(i, :): ')
         disp(err(i, :));
     end
-    Z(i, 1:N-1) = x1(1:N-1);
+    Z(i, 1:N-1) = x(i, 1:N-1);
     Z(i, N) = 1 - sum(Z(i, 1:N-1));
     for j = 1 : N
         Q_tot(i) = Q_tot(i) + Z(i, j) / isotherm{j}(lnP0(i, j));

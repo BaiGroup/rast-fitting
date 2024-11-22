@@ -44,6 +44,7 @@ ndata = size(M{1}, 1);
 [isotherm, minlnP, maxlnP, ads_pot, inv_ads_pot] = fit_piecewise_polynomial(S);
 
 %% Plotting single-component isotherms: Binary
+figure;
 lnP_plot = linspace(min(log(S{1}(:,1)))*0.9, max(log(S{1}(:,1)))*1.1, 100);
 Q_plot = isotherm{1}(lnP_plot);
 loglog(S{1}(:,1), S{1}(:,2), 'o', 'DisplayName', 'H2O');
